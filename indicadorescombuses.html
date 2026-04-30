@@ -891,7 +891,7 @@
     /* Indicadores avanzados de movilidad diaria */
     .movilidad-advanced-grid{
       display:grid;
-      grid-template-columns:repeat(2, minmax(280px, 1fr));
+      grid-template-columns:1fr;
       gap:16px;
       margin:14px 0 18px;
     }
@@ -2505,7 +2505,7 @@
           <div class="muted">Consulta de movilidad diaria desde enero de 2026 en adelante.</div>
         </div>
         <div class="chart-toolbar">
-          <button type="button" class="btn btn-excel-secondary" id="btnDescargarTodoMovilidad">Descargar ambas tablas</button>
+          <button type="button" class="btn btn-excel-secondary" id="btnDescargarTodoMovilidad">Descargar tabla en Excel</button>
           <button type="button" class="btn btn-primary" id="btnRecargarMovilidad">Recargar movilidad</button>
         </div>
       </div>
@@ -2552,42 +2552,22 @@
       </div>
 
       <div class="chart-mini-title">Indicadores destacados de movilidad diaria</div>
-      <div class="muted">Estos indicadores se calculan con la nueva base usando las columnas <strong>Ingresos totales</strong> y <strong>Viajes realizados</strong>.</div>
+      <div class="muted">Estos indicadores se calculan por ruta: cuentan vehículos únicos y suman <strong>Ingresos totales</strong> y <strong>Viajes realizados</strong>.</div>
       <div class="movilidad-warning-note" id="notaIndicadoresMovilidadAvanzados"></div>
       <div class="movilidad-advanced-grid">
         <div class="movilidad-advanced-card">
-          <h3>Top 20 mayor movilización</h3>
-          <div class="muted">Ranking por ruta y vehículo, sumando Ingresos totales.</div>
+          <h3>Cantidad de vehículos por ruta</h3>
+          <div class="muted">Ranking por ruta según la cantidad de vehículos únicos que tuvo operación en el periodo filtrado.</div>
           <div class="movilidad-ranking-wrap">
             <canvas id="graficoTopMovilizacion"></canvas>
-          </div>
-          <div class="movilidad-ranking-table">
-            <table id="tablaTopMovilizacion">
-              <thead></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="movilidad-advanced-card">
-          <h3>Top 20 viajes por ruta y vehículo</h3>
-          <div class="muted">Ranking por ruta y vehículo, sumando Viajes realizados.</div>
-          <div class="movilidad-ranking-wrap">
-            <canvas id="graficoTopViajesRutaVehiculo"></canvas>
-          </div>
-          <div class="movilidad-ranking-table">
-            <table id="tablaTopViajesRutaVehiculo">
-              <thead></thead>
-              <tbody></tbody>
-            </table>
           </div>
         </div>
       </div>
 
-      <div class="chart-mini-title">Resumen por rutas de movilidad diaria</div>
-      <div class="muted" id="notaResumenMovilidadDiaria">Se calcula con las reglas de ruta, nomenclatura y columna a tomar. Incluye Año y FECHA exacta.</div>
+      <div class="chart-mini-title">Tabla consolidada por ruta</div>
+      <div class="muted" id="notaResumenMovilidadDiaria">Una sola tabla con cantidad de vehículos, ingresos totales, viajes realizados y registros, de acuerdo con los filtros aplicados.</div>
       <div class="movilidad-download-actions">
-        <button type="button" class="btn btn-excel" id="btnDescargarResumenMovilidad">Descargar resumen en Excel</button>
+        <button type="button" class="btn btn-excel" id="btnDescargarResumenMovilidad">Descargar tabla en Excel</button>
       </div>
       <div class="table-wrap resumen-movilidad-table" style="margin-bottom:14px;">
         <table id="tablaResumenMovilidadDiaria">
@@ -2596,23 +2576,12 @@
         </table>
       </div>
 
-
       <div class="chart-wrap" id="wrapGraficoMovilidadDiaria" style="height:380px; margin-bottom:14px; display:none;">
         <canvas id="graficoMovilidadDiaria"></canvas>
       </div>
 
       <div class="movilidad-toolbar">
-        <div class="muted mb-0" id="notaMovilidadDiaria">La tabla mostrará automáticamente los campos disponibles.</div>
-        <div class="movilidad-download-actions mb-0">
-          <button type="button" class="btn btn-excel" id="btnDescargarDetalleMovilidad">Descargar detalle en Excel</button>
-        </div>
-      </div>
-
-      <div class="table-wrap movilidad-table">
-        <table id="tablaMovilidadDiaria">
-          <thead></thead>
-          <tbody></tbody>
-        </table>
+        <div class="muted mb-0" id="notaMovilidadDiaria">La tabla consolidada se actualiza automáticamente con los filtros de ruta, vehículo y mes.</div>
       </div>
     </div>
 
@@ -4353,19 +4322,26 @@
     }
 
     function construirFilasResumenMovilidadDiaria(datos) {
-      const columnas = obtenerColumnasDesdeDatos(datos || []);
+      const base = Array.isArray(datos) ? datos : [];
+      const columnas = obtenerColumnasDesdeDatos(base);
 
       const colRuta = buscarColumnaPreferidaMovilidad(columnas, ["Ruta"], ["ruta"]);
-      const colIngresos = buscarColumnaPreferidaMovilidad(columnas, ["Ingresos totales", "Total salidas"], ["ingresos", "total salidas"]);
+      const colVehiculo = buscarColumnaPreferidaMovilidad(
+        columnas,
+        ["Vehículo", "Vehiculo", "VEHICULO", "Interno", "INTERNO", "Placa", "PLACA", "Móvil", "Movil"],
+        ["vehiculo", "interno", "placa", "movil"]
+      );
+      const colIngresos = buscarColumnaPreferidaMovilidad(columnas, ["Ingresos totales", "INGRESOS TOTALES", "Total salidas"], ["ingresos totales", "ingresos", "total salidas"]);
       const colBarrial = buscarColumnaPreferidaMovilidad(columnas, ["Barrial"], ["barrial"]);
-      const colViajes = buscarColumnaPreferidaMovilidad(columnas, ["Viajes realizados"], ["viajes"]);
-      const colAG = buscarColumnaPreferidaMovilidad(columnas, ["A-G", "AG", "A G"], ["a-g"]);
+      const colViajes = buscarColumnaPreferidaMovilidad(columnas, ["Viajes realizados", "VIAJES REALIZADOS"], ["viajes realizados", "viajes"]);
+      const colAG = buscarColumnaPreferidaMovilidad(columnas, ["A-G", "AG", "A G", "A/G"], ["a-g", "ag"]);
 
-      if (!datos.length || !colRuta) {
+      if (!base.length || !colRuta) {
         return {
           filasFinales: [],
           columnas,
           colRuta,
+          colVehiculo,
           colIngresos,
           colBarrial,
           colViajes,
@@ -4376,47 +4352,77 @@
 
       const grupos = new Map();
 
-      datos.forEach(fila => {
-        const infoFecha = obtenerInfoFechaResumenMovilidad(fila, columnas);
-        if (!grupos.has(infoFecha.key)) {
-          grupos.set(infoFecha.key, crearGrupoResumenMovilidad(infoFecha));
+      function asegurarGrupoRuta(ruta) {
+        const nombreRuta = String(ruta || "Sin ruta").trim() || "Sin ruta";
+        if (!grupos.has(nombreRuta)) {
+          grupos.set(nombreRuta, {
+            ruta: nombreRuta,
+            vehiculos: new Set(),
+            ingresos: 0,
+            viajes: 0,
+            registros: 0
+          });
         }
+        return grupos.get(nombreRuta);
+      }
 
-        const grupo = grupos.get(infoFecha.key);
-        const codigoRuta = obtenerCodigoRutaMovilidad(fila[colRuta]);
+      function sumarRuta(ruta, ingresos, viajes, vehiculo) {
+        const grupo = asegurarGrupoRuta(ruta);
+        const vehiculoTexto = String(vehiculo || "").trim();
+        if (vehiculoTexto && vehiculoTexto !== "Sin vehículo") grupo.vehiculos.add(vehiculoTexto);
+        grupo.ingresos += Number(ingresos || 0);
+        grupo.viajes += Number(viajes || 0);
+        grupo.registros += 1;
+      }
+
+      base.forEach(fila => {
+        const codigoRuta = colRuta ? obtenerCodigoRutaMovilidad(fila[colRuta]) : "";
+        if (RUTAS_RAMAL_OCULTAS && RUTAS_RAMAL_OCULTAS.has(codigoRuta)) return;
+
+        const vehiculo = obtenerVehiculoMovilidad(fila, colVehiculo);
         const ingresos = obtenerValorNumericoFilaMovilidad(fila, colIngresos);
         const barrial = obtenerValorNumericoFilaMovilidad(fila, colBarrial);
         const viajes = obtenerValorNumericoFilaMovilidad(fila, colViajes);
-        const ag = normalizarTexto(fila[colAG]).replace(/\s+/g, "").replace(/-/g, "");
+        const ag = normalizarTexto(colAG ? fila[colAG] : "").replace(/\s+/g, "").replace(/-/g, "");
 
         if (codigoRuta === "313") {
-          agregarResumenMovilidad(grupo, "313", ingresos, viajes);
+          sumarRuta("313", ingresos, viajes, vehiculo);
         } else if (codigoRuta === "700") {
-          // Para Aeropuerto los viajes se cuentan doble en la fuente,
-          // por eso en el resumen se dividen entre 2.
-          agregarResumenMovilidad(grupo, "Aeropuerto", ingresos, viajes / 2);
+          // En Aeropuerto los viajes vienen duplicados en la fuente; se dividen entre 2.
+          sumarRuta("Aeropuerto", ingresos, viajes / 2, vehiculo);
         } else if (codigoRuta === "2") {
-          agregarResumenMovilidad(grupo, "Zamora centro", ingresos, viajes);
-          agregarResumenMovilidad(grupo, "Zamora Barrial", barrial, viajes);
+          sumarRuta("Zamora centro", ingresos, viajes, vehiculo);
+          if (colBarrial) sumarRuta("Zamora Barrial", barrial, viajes, vehiculo);
         } else if (codigoRuta === "41") {
-          if (ag === "a") {
-            agregarResumenMovilidad(grupo, "Aranjuez 041A", ingresos, viajes);
-          } else if (ag === "g") {
-            agregarResumenMovilidad(grupo, "Aranjuez 041G", ingresos, viajes);
-          } else if (ag === "ag") {
-            agregarResumenMovilidad(grupo, "Aranjuez 041AG", ingresos, viajes);
-          }
+          if (ag === "a") sumarRuta("Aranjuez 041A", ingresos, viajes, vehiculo);
+          else if (ag === "g") sumarRuta("Aranjuez 041G", ingresos, viajes, vehiculo);
+          else if (ag === "ag") sumarRuta("Aranjuez 041AG", ingresos, viajes, vehiculo);
+          else sumarRuta("Aranjuez 041", ingresos, viajes, vehiculo);
+        } else {
+          sumarRuta(obtenerRutaDetalleMovilidad(fila, colRuta, colAG), ingresos, viajes, vehiculo);
         }
       });
 
       const filasFinales = [...grupos.values()]
-        .sort((a, b) => a.sortKey - b.sortKey || a.key.localeCompare(b.key))
-        .flatMap(grupo => ORDEN_RESUMEN_MOVILIDAD.map(ruta => grupo.filas[ruta]));
+        .map(item => ({
+          ruta: item.ruta,
+          cantidadVehiculos: item.vehiculos.size,
+          ingresos: item.ingresos,
+          viajes: item.viajes,
+          registros: item.registros
+        }))
+        .filter(item => item.cantidadVehiculos || item.ingresos || item.viajes || item.registros)
+        .sort((a, b) =>
+          b.cantidadVehiculos - a.cantidadVehiculos ||
+          b.ingresos - a.ingresos ||
+          String(a.ruta).localeCompare(String(b.ruta), "es", { numeric: true })
+        );
 
       return {
         filasFinales,
         columnas,
         colRuta,
+        colVehiculo,
         colIngresos,
         colBarrial,
         colViajes,
@@ -4436,41 +4442,38 @@
 
       thead.innerHTML = `
         <tr>
-          <th>Año</th>
-          <th>FECHA</th>
-          <th>Mes</th>
-          <th>Día</th>
+          <th>#</th>
           <th>Ruta</th>
-          <th>Pasajeros</th>
+          <th>Cantidad vehículos</th>
+          <th>Ingresos totales</th>
           <th>Viajes realizados</th>
+          <th>Registros</th>
         </tr>
       `;
 
       if (!resultado.filasFinales.length) {
-        tbody.innerHTML = `<tr><td colspan="7">No hay datos suficientes para calcular el resumen de movilidad diaria.</td></tr>`;
-        if (nota) nota.textContent = "No se pudo calcular el resumen porque no se detectó la columna Ruta o no hay filas cargadas.";
+        tbody.innerHTML = `<tr><td colspan="6">No hay datos suficientes para calcular la tabla consolidada de movilidad diaria.</td></tr>`;
+        if (nota) nota.textContent = "No se pudo calcular la tabla consolidada porque no se detectó la columna Ruta o no hay filas cargadas.";
         return resultado;
       }
 
-      tbody.innerHTML = resultado.filasFinales.map(fila => `
+      tbody.innerHTML = resultado.filasFinales.map((fila, index) => `
         <tr>
-          <td>${escaparHtml(fila.anio)}</td>
-          <td>${escaparHtml(fila.fecha)}</td>
-          <td>${escaparHtml(fila.mes)}</td>
-          <td>${escaparHtml(fila.dia)}</td>
+          <td><strong>${index + 1}</strong></td>
           <td>${escaparHtml(fila.ruta)}</td>
-          <td class="numero">${formatearNumero(fila.pasajeros)}</td>
+          <td class="numero"><strong>${formatearNumero(fila.cantidadVehiculos)}</strong></td>
+          <td class="numero">${formatearNumero(fila.ingresos)}</td>
           <td class="numero">${formatearNumero(fila.viajes)}</td>
+          <td class="numero">${formatearNumero(fila.registros)}</td>
         </tr>
       `).join("");
 
       if (nota) {
-        nota.textContent = `Resumen calculado por reglas. Pasajeros usa "${resultado.colIngresos || "No detectada"}"; Zamora Barrial usa "${resultado.colBarrial || "No detectada"}"; viajes usa "${resultado.colViajes || "No detectada"}"; Aranjuez se separa con "${resultado.colAG || "No detectada"}". Este mismo resumen alimenta los gráficos generales desde ${MOVILIDAD_FECHA_MINIMA_LABEL}.`;
+        nota.textContent = `Tabla consolidada por ruta. Vehículos cuenta valores únicos de "${resultado.colVehiculo || "No detectada"}"; ingresos usa "${resultado.colIngresos || "No detectada"}"; viajes usa "${resultado.colViajes || "No detectada"}". Aeropuerto divide viajes entre 2.`;
       }
 
       return resultado;
     }
-
 
     function renderTablaMovilidadDiaria(datos) {
       const tabla = document.getElementById("tablaMovilidadDiaria");
@@ -4650,52 +4653,10 @@
     }
 
     function construirIndicadoresAvanzadosMovilidad(datos) {
-      const base = Array.isArray(datos) ? datos : [];
-      const columnas = obtenerColumnasDesdeDatos(base);
-      const colRuta = buscarColumnaPreferidaMovilidad(columnas, ["Ruta", "RUTA", "ruta"], ["ruta"]);
-      const colVehiculo = buscarColumnaPreferidaMovilidad(
-        columnas,
-        ["Vehículo", "Vehiculo", "VEHICULO", "Interno", "INTERNO", "Placa", "PLACA", "Móvil", "Movil"],
-        ["vehiculo", "interno", "placa", "movil"]
-      );
-      const colIngresos = buscarColumnaPreferidaMovilidad(columnas, ["Ingresos totales", "INGRESOS TOTALES"], ["ingresos totales", "ingresos"]);
-      const colViajes = buscarColumnaPreferidaMovilidad(columnas, ["Viajes realizados", "VIAJES REALIZADOS"], ["viajes realizados", "viajes"]);
-      const colAG = buscarColumnaPreferidaMovilidad(columnas, ["A-G", "AG", "A/G"], ["a-g", "ag"]);
-
-      const grupos = new Map();
-
-      base.forEach(fila => {
-        const codigoRuta = colRuta ? obtenerCodigoRutaMovilidad(fila[colRuta]) : "";
-        if (RUTAS_RAMAL_OCULTAS && RUTAS_RAMAL_OCULTAS.has(codigoRuta)) return;
-
-        const ruta = obtenerRutaDetalleMovilidad(fila, colRuta, colAG);
-        const vehiculo = obtenerVehiculoMovilidad(fila, colVehiculo);
-        const key = `${ruta}||${vehiculo}`;
-        const actual = grupos.get(key) || {
-          ruta,
-          vehiculo,
-          ingresos: 0,
-          viajes: 0,
-          registros: 0
-        };
-
-        actual.ingresos += colIngresos ? limpiarNumero(fila[colIngresos]) : 0;
-        actual.viajes += colViajes ? limpiarNumero(fila[colViajes]) : 0;
-        actual.registros += 1;
-        grupos.set(key, actual);
-      });
-
-      const filas = [...grupos.values()].filter(item => item.ingresos || item.viajes);
-
+      const resultado = construirFilasResumenMovilidadDiaria(datos || []);
       return {
-        columnas,
-        colRuta,
-        colVehiculo,
-        colIngresos,
-        colViajes,
-        colAG,
-        topMovilizacion: [...filas].sort((a, b) => b.ingresos - a.ingresos).slice(0, 20),
-        topViajes: [...filas].sort((a, b) => b.viajes - a.viajes).slice(0, 20)
+        ...resultado,
+        resumenPorRuta: resultado.filasFinales
       };
     }
 
@@ -4704,16 +4665,14 @@
       if (!tabla) return;
       const thead = tabla.querySelector("thead");
       const tbody = tabla.querySelector("tbody");
-      const principal = tipo === "ingresos" ? "Ingresos totales" : "Viajes realizados";
-      const secundario = tipo === "ingresos" ? "Viajes realizados" : "Ingresos totales";
 
       thead.innerHTML = `
         <tr>
           <th>#</th>
           <th>Ruta</th>
-          <th>Vehículo</th>
-          <th>${principal}</th>
-          <th>${secundario}</th>
+          <th>Cantidad vehículos</th>
+          <th>Ingresos totales</th>
+          <th>Viajes realizados</th>
           <th>Registros</th>
         </tr>
       `;
@@ -4727,10 +4686,10 @@
         <tr>
           <td><strong>${index + 1}</strong></td>
           <td>${escaparHtml(item.ruta)}</td>
-          <td>${escaparHtml(item.vehiculo)}</td>
-          <td><strong>${formatearNumero(tipo === "ingresos" ? item.ingresos : item.viajes)}</strong></td>
-          <td>${formatearNumero(tipo === "ingresos" ? item.viajes : item.ingresos)}</td>
-          <td>${formatearNumero(item.registros)}</td>
+          <td><strong>${formatearNumero(item.cantidadVehiculos || 0)}</strong></td>
+          <td>${formatearNumero(item.ingresos || 0)}</td>
+          <td>${formatearNumero(item.viajes || 0)}</td>
+          <td>${formatearNumero(item.registros || 0)}</td>
         </tr>
       `).join("");
     }
@@ -4739,7 +4698,7 @@
       const canvas = document.getElementById(canvasId);
       if (!canvas || typeof Chart === "undefined") return null;
 
-      const labels = filas.map(item => `${item.ruta} - ${item.vehiculo}`);
+      const labels = filas.map(item => item.vehiculo ? `${item.ruta} - ${item.vehiculo}` : `${item.ruta}`);
       const data = filas.map(item => Number(item[valueKey] || 0));
 
       return new Chart(canvas, {
@@ -4967,7 +4926,15 @@
       filtrosMovilidadDiaria = { ruta, vehiculo, meses };
       datosMovilidadDiariaFiltrados = filtrarDatosMovilidadDiaria(datosMovilidadDiaria || []);
       actualizarChipFiltroMovilidad(datosMovilidadDiariaFiltrados.length, (datosMovilidadDiaria || []).length);
+
+      const columnas = obtenerColumnasDesdeDatos(datosMovilidadDiaria);
+      const fechaCol = buscarColumnaMovilidad(columnas, ["fecha", "día", "dia"]);
+      const valorCol = detectarColumnaNumericaMovilidad(datosMovilidadDiaria, columnas);
+
+      renderKpisMovilidadDiaria(datosMovilidadDiariaFiltrados, columnas, fechaCol, valorCol);
       renderIndicadoresAvanzadosMovilidad(datosMovilidadDiariaFiltrados);
+      renderResumenMovilidadDiaria(datosMovilidadDiariaFiltrados);
+      renderGraficoMovilidadDiaria(datosMovilidadDiariaFiltrados, fechaCol, valorCol);
     }
 
     function limpiarFiltrosMovilidadDiaria() {
@@ -5004,23 +4971,15 @@
         }
       }
 
-      renderTablaRankingMovilidad("tablaTopMovilizacion", info.topMovilizacion, "ingresos");
-      renderTablaRankingMovilidad("tablaTopViajesRutaVehiculo", info.topViajes, "viajes");
+      const filas = info.resumenPorRuta || [];
+      renderTablaRankingMovilidad("tablaTopMovilizacion", filas, "vehiculos");
 
       graficoTopMovilizacion = renderGraficoRankingMovilidad(
         "graficoTopMovilizacion",
-        info.topMovilizacion,
-        "ingresos",
-        "Top 20 mayor movilización",
-        "Ingresos totales"
-      );
-
-      graficoTopViajesRutaVehiculo = renderGraficoRankingMovilidad(
-        "graficoTopViajesRutaVehiculo",
-        info.topViajes,
-        "viajes",
-        "Top 20 viajes por ruta y vehículo",
-        "Viajes realizados"
+        filas,
+        "cantidadVehiculos",
+        "Cantidad de vehículos por ruta",
+        "Vehículos"
       );
     }
 
@@ -5028,26 +4987,25 @@
       const filtroMovilidad = filtrarMovilidadDesdeFechaMinima(datos || []);
       datosMovilidadDiaria = filtroMovilidad.datos || [];
 
-      const resultadoResumen = renderResumenMovilidadDiaria(datosMovilidadDiaria);
-      const resultadoTabla = renderTablaMovilidadDiaria(datosMovilidadDiaria);
-      const columnas = resultadoTabla ? resultadoTabla.columnas : [];
-      const fechaCol = resultadoTabla ? resultadoTabla.fechaCol : filtroMovilidad.fechaCol || "";
-      const valorCol = resultadoTabla ? resultadoTabla.valorCol : "";
+      const columnas = obtenerColumnasDesdeDatos(datosMovilidadDiaria);
+      const fechaCol = buscarColumnaMovilidad(columnas, ["fecha", "día", "dia"]) || filtroMovilidad.fechaCol || "";
+      const valorCol = detectarColumnaNumericaMovilidad(datosMovilidadDiaria, columnas);
 
-      renderKpisMovilidadDiaria(datosMovilidadDiaria, columnas, fechaCol, valorCol);
       renderFiltrosMovilidadDiaria(datosMovilidadDiaria);
       datosMovilidadDiariaFiltrados = filtrarDatosMovilidadDiaria(datosMovilidadDiaria);
       actualizarChipFiltroMovilidad(datosMovilidadDiariaFiltrados.length, datosMovilidadDiaria.length);
+      renderKpisMovilidadDiaria(datosMovilidadDiariaFiltrados, columnas, fechaCol, valorCol);
       renderIndicadoresAvanzadosMovilidad(datosMovilidadDiariaFiltrados);
-      renderGraficoMovilidadDiaria(datosMovilidadDiaria, fechaCol, valorCol);
+      renderResumenMovilidadDiaria(datosMovilidadDiariaFiltrados);
+      renderGraficoMovilidadDiaria(datosMovilidadDiariaFiltrados, fechaCol, valorCol);
 
       const nota = document.getElementById("notaMovilidadDiaria");
       if (nota) {
-        const textoBase = nota.textContent || "";
+        const textoBase = "La tabla consolidada se actualiza automáticamente con los filtros de ruta, vehículo y mes.";
         if (filtroMovilidad.filtroAplicado) {
           nota.textContent = `${textoBase} Filtro aplicado: desde ${MOVILIDAD_FECHA_MINIMA_LABEL} en adelante.`;
         } else {
-          nota.textContent = `${textoBase} No se aplicó filtro de abril 2026 porque ${filtroMovilidad.motivo}.`;
+          nota.textContent = `${textoBase} No se aplicó filtro desde ${MOVILIDAD_FECHA_MINIMA_LABEL} porque ${filtroMovilidad.motivo}.`;
         }
       }
 
@@ -6923,132 +6881,8 @@
     function descargarAmbasTablasMovilidadExcel() {
       const sufijo = obtenerSufijoArchivoMovilidad();
       descargarWorkbookExcel([
-        { nombreHoja: "Resumen movilidad", matriz: obtenerMatrizDesdeTabla("tablaResumenMovilidadDiaria") },
-        { nombreHoja: "Detalle movilidad", matriz: obtenerMatrizDesdeTabla("tablaMovilidadDiaria") }
-      ], `movilidad_diaria_resumen_y_detalle_${sufijo}.xlsx`);
-    }
-
-    document.getElementById("slicerHeader").addEventListener("click", () => {
-      document.getElementById("slicerTiempo").classList.toggle("collapsed");
-    });
-
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-      btn.addEventListener("click", () => cambiarModo(btn.dataset.mode));
-    });
-
-    document.getElementById("buscarItem").addEventListener("input", renderLista);
-
-    const btnGuiaIrFiltros = document.getElementById("btnGuiaIrFiltros");
-    if (btnGuiaIrFiltros) {
-      btnGuiaIrFiltros.addEventListener("click", () => mostrarGuiaOperacionRutas(true));
-    }
-
-    const btnGuiaAplicarFiltro = document.getElementById("btnGuiaAplicarFiltro");
-    if (btnGuiaAplicarFiltro) {
-      btnGuiaAplicarFiltro.addEventListener("click", () => {
-        abrirFiltroTiempoParaGuia();
-        aplicarFiltros();
-        const primerPanelOperacion = document.querySelector('[data-dashboard-id="pasajeros_ruta"]');
-        if (primerPanelOperacion && typeof primerPanelOperacion.scrollIntoView === "function") {
-          setTimeout(() => primerPanelOperacion.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
-        }
-      });
-    }
-
-    const btnCerrarGuiaOperacion = document.getElementById("btnCerrarGuiaOperacion");
-    if (btnCerrarGuiaOperacion) {
-      btnCerrarGuiaOperacion.addEventListener("click", ocultarGuiaOperacionRutas);
-    }
-
-    document.querySelectorAll("[data-guide-mode]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const mode = btn.dataset.guideMode;
-        cambiarModo(mode);
-        mostrarGuiaOperacionRutas(true);
-      });
-    });
-
-
-    document.querySelectorAll(".view-tab").forEach(btn => {
-      btn.addEventListener("click", () => cambiarVista(btn.dataset.view));
-    });
-
-    const metricGraficoEl = document.getElementById("metricGrafico");
-    if (metricGraficoEl) {
-      metricGraficoEl.addEventListener("change", () => {
-        renderGraficoCrecimientoRuta(datosFiltradosActuales.length ? datosFiltradosActuales : filtrarDatos());
-      });
-    }
-
-    document.getElementById("btnTodos").addEventListener("click", () => {
-      if (modoActual !== "rango") {
-        seleccion[modoActual] = new Set(opciones[modoActual].map(x => x.value));
-        renderLista();
-        actualizarChips();
-      }
-    });
-
-    document.getElementById("btnNinguno").addEventListener("click", () => {
-      if (modoActual !== "rango") {
-        seleccion[modoActual] = new Set();
-        renderLista();
-        actualizarChips();
-      }
-    });
-
-    document.getElementById("btnAplicar").addEventListener("click", aplicarFiltros);
-    document.getElementById("btnLimpiar").addEventListener("click", limpiarModoActual);
-    document.getElementById("fechaInicio").addEventListener("change", actualizarChips);
-    document.getElementById("fechaFin").addEventListener("change", actualizarChips);
-
-    const btnRecargarMovilidad = document.getElementById("btnRecargarMovilidad");
-    if (btnRecargarMovilidad) {
-      btnRecargarMovilidad.addEventListener("click", () => cargarMovilidadDiaria(true));
-    }
-
-    ["filtroMovilidadRuta", "filtroMovilidadVehiculo"].forEach(id => {
-      const control = document.getElementById(id);
-      if (control) control.addEventListener("change", aplicarFiltrosMovilidadDiaria);
-    });
-
-    const btnTodosMesesMovilidad = document.getElementById("btnTodosMesesMovilidad");
-    if (btnTodosMesesMovilidad) {
-      btnTodosMesesMovilidad.addEventListener("click", () => {
-        document.querySelectorAll("#filtroMovilidadMeses .chk-mes-movilidad").forEach(chk => { chk.checked = true; });
-        aplicarFiltrosMovilidadDiaria();
-      });
-    }
-
-    const btnNingunMesMovilidad = document.getElementById("btnNingunMesMovilidad");
-    if (btnNingunMesMovilidad) {
-      btnNingunMesMovilidad.addEventListener("click", () => {
-        document.querySelectorAll("#filtroMovilidadMeses .chk-mes-movilidad").forEach(chk => { chk.checked = false; });
-        aplicarFiltrosMovilidadDiaria();
-      });
-    }
-
-    const btnLimpiarFiltrosMovilidad = document.getElementById("btnLimpiarFiltrosMovilidad");
-    if (btnLimpiarFiltrosMovilidad) {
-      btnLimpiarFiltrosMovilidad.addEventListener("click", limpiarFiltrosMovilidadDiaria);
-    }
-
-    const btnDescargarResumenMovilidad = document.getElementById("btnDescargarResumenMovilidad");
-    if (btnDescargarResumenMovilidad) {
-      btnDescargarResumenMovilidad.addEventListener("click", () => {
-        descargarTablaMovilidadExcel("tablaResumenMovilidadDiaria", "Resumen movilidad", "movilidad_diaria_resumen");
-      });
-    }
-
-    const btnDescargarDetalleMovilidad = document.getElementById("btnDescargarDetalleMovilidad");
-    if (btnDescargarDetalleMovilidad) {
-      btnDescargarDetalleMovilidad.addEventListener("click", () => {
-        descargarTablaMovilidadExcel("tablaMovilidadDiaria", "Detalle movilidad", "movilidad_diaria_detalle");
-      });
-    }
-
-    const btnDescargarTodoMovilidad = document.getElementById("btnDescargarTodoMovilidad");
-    if (btnDescargarTodoMovilidad) {
-      btnDescargarTodoMovilidad.addEventListener("click", descargarAmbasTablasMovilidadExcel);
+        { nombreHoja: "Movilidad consolidada", matriz: obtenerMatrizDesdeTabla("tablaResumenMovilidadDiaria") }
+      ], `movilidad_diaria_consolidada_${sufijo}.xlsx`);
     }
 
     function extraerInfoGoogleSheet(csvUrl) {
