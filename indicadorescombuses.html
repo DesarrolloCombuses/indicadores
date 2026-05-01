@@ -7026,7 +7026,20 @@
         ajustarAnchosExcel(worksheet, hoja.matriz);
         XLSX.utils.book_append_sheet(workbook, worksheet, sanitizarNombreHoja(hoja.nombreHoja));
       });
-      XLSX.writeFile(workbook, nombreArchivo);
+      try {
+        XLSX.writeFile(workbook, nombreArchivo);
+      } catch (error) {
+        console.warn("No se pudo generar XLSX. Se descarga CSV como respaldo:", error);
+        if (hojasValidas.length === 1) {
+          const csv = "\ufeff" + convertirMatrizACSV(hojasValidas[0].matriz);
+          descargarArchivoTexto(csv, nombreArchivo.replace(/\.xlsx$/i, ".csv"), "text/csv;charset=utf-8;");
+        } else {
+          const contenido = hojasValidas.map(hoja => {
+            return `HOJA: ${hoja.nombreHoja}\r\n` + convertirMatrizACSV(hoja.matriz);
+          }).join("\r\n\r\n");
+          descargarArchivoTexto("\ufeff" + contenido, nombreArchivo.replace(/\.xlsx$/i, ".csv"), "text/csv;charset=utf-8;");
+        }
+      }
     }
 
     function descargarTablaMovilidadExcel(tablaId, nombreHoja, nombreBase) {
@@ -7042,6 +7055,61 @@
       descargarWorkbookExcel([
         { nombreHoja: "Movilidad consolidada", matriz: obtenerMatrizDesdeTabla("tablaResumenMovilidadDiaria") }
       ], `movilidad_diaria_consolidada_${sufijo}.xlsx`);
+    }
+
+
+    // Eventos de movilidad diaria: filtros, recarga y descarga de Excel
+    ["filtroMovilidadRuta", "filtroMovilidadVehiculo"].forEach(id => {
+      const control = document.getElementById(id);
+      if (control) control.addEventListener("change", aplicarFiltrosMovilidadDiaria);
+    });
+
+    const btnTodosMesesMovilidad = document.getElementById("btnTodosMesesMovilidad");
+    if (btnTodosMesesMovilidad) {
+      btnTodosMesesMovilidad.addEventListener("click", () => {
+        document.querySelectorAll("#filtroMovilidadMeses .chk-mes-movilidad").forEach(chk => { chk.checked = true; });
+        aplicarFiltrosMovilidadDiaria();
+      });
+    }
+
+    const btnNingunMesMovilidad = document.getElementById("btnNingunMesMovilidad");
+    if (btnNingunMesMovilidad) {
+      btnNingunMesMovilidad.addEventListener("click", () => {
+        document.querySelectorAll("#filtroMovilidadMeses .chk-mes-movilidad").forEach(chk => { chk.checked = false; });
+        aplicarFiltrosMovilidadDiaria();
+      });
+    }
+
+    const btnLimpiarFiltrosMovilidad = document.getElementById("btnLimpiarFiltrosMovilidad");
+    if (btnLimpiarFiltrosMovilidad) {
+      btnLimpiarFiltrosMovilidad.addEventListener("click", limpiarFiltrosMovilidadDiaria);
+    }
+
+    const btnRecargarMovilidad = document.getElementById("btnRecargarMovilidad");
+    if (btnRecargarMovilidad) {
+      btnRecargarMovilidad.addEventListener("click", async () => {
+        try {
+          mostrarModalCarga("Recargando movilidad diaria", "Actualizando la información de movilidad diaria. Por favor espera.");
+          await cargarMovilidadDiaria(true);
+        } catch (error) {
+          console.error("Error al recargar movilidad diaria:", error);
+          alert("No se pudo recargar movilidad diaria: " + (error && error.message ? error.message : error));
+        } finally {
+          ocultarModalCarga();
+        }
+      });
+    }
+
+    const btnDescargarResumenMovilidad = document.getElementById("btnDescargarResumenMovilidad");
+    if (btnDescargarResumenMovilidad) {
+      btnDescargarResumenMovilidad.addEventListener("click", () => {
+        descargarTablaMovilidadExcel("tablaResumenMovilidadDiaria", "Movilidad mensual", "movilidad_diaria_mensual_vehiculo");
+      });
+    }
+
+    const btnDescargarTodoMovilidad = document.getElementById("btnDescargarTodoMovilidad");
+    if (btnDescargarTodoMovilidad) {
+      btnDescargarTodoMovilidad.addEventListener("click", descargarAmbasTablasMovilidadExcel);
     }
 
     function extraerInfoGoogleSheet(csvUrl) {
