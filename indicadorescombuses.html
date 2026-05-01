@@ -2552,20 +2552,20 @@
       </div>
 
       <div class="chart-mini-title">Indicadores destacados de movilidad diaria</div>
-      <div class="muted">Estos indicadores se calculan por ruta: cuentan vehículos únicos y suman <strong>Ingresos totales</strong> y <strong>Viajes realizados</strong>.</div>
+      <div class="muted">Ranking mensual de vehículos con mayor movilidad, calculado por <strong>mes + ruta + vehículo</strong>, usando <strong>Ingresos totales</strong> y <strong>Viajes realizados</strong>.</div>
       <div class="movilidad-warning-note" id="notaIndicadoresMovilidadAvanzados"></div>
       <div class="movilidad-advanced-grid">
         <div class="movilidad-advanced-card">
-          <h3>Cantidad de vehículos por ruta</h3>
-          <div class="muted">Ranking por ruta según la cantidad de vehículos únicos que tuvo operación en el periodo filtrado.</div>
+          <h3>Ranking mensual de vehículos con mayor movilidad</h3>
+          <div class="muted">Muestra los vehículos con más ingresos dentro del mes o meses filtrados. Si eliges Aeropuerto y un mes, aquí deben aparecer sus vehículos internos ordenados por movilidad.</div>
           <div class="movilidad-ranking-wrap">
             <canvas id="graficoTopMovilizacion"></canvas>
           </div>
         </div>
       </div>
 
-      <div class="chart-mini-title">Tabla consolidada por ruta</div>
-      <div class="muted" id="notaResumenMovilidadDiaria">Una sola tabla con cantidad de vehículos, ingresos totales, viajes realizados y registros, de acuerdo con los filtros aplicados.</div>
+      <div class="chart-mini-title">Tabla consolidada mensual por vehículo</div>
+      <div class="muted" id="notaResumenMovilidadDiaria">Una sola tabla con mes, ruta, vehículo, ingresos totales, viajes realizados y registros, de acuerdo con los filtros aplicados.</div>
       <div class="movilidad-download-actions">
         <button type="button" class="btn btn-excel" id="btnDescargarResumenMovilidad">Descargar tabla en Excel</button>
       </div>
@@ -4216,8 +4216,24 @@
     function obtenerCodigoRutaMovilidad(valor) {
       const texto = String(valor ?? "").trim();
       if (!texto) return "";
-      const numero = limpiarNumero(texto);
-      if (!isNaN(numero) && numero !== 0) return String(Math.trunc(numero));
+
+      const textoNorm = normalizarTexto(texto);
+
+      // Primero reconocemos nombres escritos como texto. Esto evita que Aeropuerto
+      // quede partido en varios nombres cuando la hoja trae "Aeropuerto", "AEROPUERTO"
+      // o incluso errores pequeños de escritura.
+      if (textoNorm.includes("aeropuerto") || textoNorm.includes("aeropuero")) return "700";
+      if (textoNorm.includes("zamora")) return "2";
+      if (textoNorm.includes("aranjuez")) return "41";
+      if (textoNorm.includes("313")) return "313";
+
+      const numeroDirecto = Number(texto.replace(/\./g, "").replace(/,/g, "."));
+      if (!isNaN(numeroDirecto) && numeroDirecto !== 0) return String(Math.trunc(numeroDirecto));
+
+      // Si viene algo como "700 - Aeropuerto" o "041A", tomamos el primer bloque numérico.
+      const matchNumero = texto.match(/\d+/);
+      if (matchNumero) return String(Math.trunc(Number(matchNumero[0])));
+
       return texto;
     }
 
@@ -4368,8 +4384,8 @@
 
       function sumarRuta(ruta, ingresos, viajes, vehiculo) {
         const grupo = asegurarGrupoRuta(ruta);
-        const vehiculoTexto = String(vehiculo || "").trim();
-        if (vehiculoTexto && vehiculoTexto !== "Sin vehículo") grupo.vehiculos.add(vehiculoTexto);
+        const claveVehiculo = obtenerClaveVehiculoMovilidad(vehiculo);
+        if (claveVehiculo) grupo.vehiculos.add(claveVehiculo);
         grupo.ingresos += Number(ingresos || 0);
         grupo.viajes += Number(viajes || 0);
         grupo.registros += 1;
@@ -4379,27 +4395,29 @@
         const codigoRuta = colRuta ? obtenerCodigoRutaMovilidad(fila[colRuta]) : "";
         if (RUTAS_RAMAL_OCULTAS && RUTAS_RAMAL_OCULTAS.has(codigoRuta)) return;
 
+        const rutaAgrupada = obtenerRutaDetalleMovilidad(fila, colRuta, colAG);
         const vehiculo = obtenerVehiculoMovilidad(fila, colVehiculo);
         const ingresos = obtenerValorNumericoFilaMovilidad(fila, colIngresos);
         const barrial = obtenerValorNumericoFilaMovilidad(fila, colBarrial);
         const viajes = obtenerValorNumericoFilaMovilidad(fila, colViajes);
         const ag = normalizarTexto(colAG ? fila[colAG] : "").replace(/\s+/g, "").replace(/-/g, "");
 
-        if (codigoRuta === "313") {
+        if (rutaAgrupada === "313") {
           sumarRuta("313", ingresos, viajes, vehiculo);
-        } else if (codigoRuta === "700") {
+        } else if (rutaAgrupada === "Aeropuerto") {
           // En Aeropuerto los viajes vienen duplicados en la fuente; se dividen entre 2.
+          // La cantidad de vehículos NO se divide: se cuentan internos únicos de la ruta completa.
           sumarRuta("Aeropuerto", ingresos, viajes / 2, vehiculo);
-        } else if (codigoRuta === "2") {
+        } else if (rutaAgrupada === "Zamora") {
           sumarRuta("Zamora centro", ingresos, viajes, vehiculo);
           if (colBarrial) sumarRuta("Zamora Barrial", barrial, viajes, vehiculo);
-        } else if (codigoRuta === "41") {
+        } else if (rutaAgrupada.startsWith("Aranjuez")) {
           if (ag === "a") sumarRuta("Aranjuez 041A", ingresos, viajes, vehiculo);
           else if (ag === "g") sumarRuta("Aranjuez 041G", ingresos, viajes, vehiculo);
           else if (ag === "ag") sumarRuta("Aranjuez 041AG", ingresos, viajes, vehiculo);
-          else sumarRuta("Aranjuez 041", ingresos, viajes, vehiculo);
+          else sumarRuta(rutaAgrupada, ingresos, viajes, vehiculo);
         } else {
-          sumarRuta(obtenerRutaDetalleMovilidad(fila, colRuta, colAG), ingresos, viajes, vehiculo);
+          sumarRuta(rutaAgrupada, ingresos, viajes, vehiculo);
         }
       });
 
@@ -4438,13 +4456,14 @@
 
       const thead = tabla.querySelector("thead");
       const tbody = tabla.querySelector("tbody");
-      const resultado = construirFilasResumenMovilidadDiaria(datos || []);
+      const resultado = construirRankingVehiculosMovilidad(datos || []);
 
       thead.innerHTML = `
         <tr>
           <th>#</th>
+          <th>Mes</th>
           <th>Ruta</th>
-          <th>Cantidad vehículos</th>
+          <th>Vehículo</th>
           <th>Ingresos totales</th>
           <th>Viajes realizados</th>
           <th>Registros</th>
@@ -4452,16 +4471,17 @@
       `;
 
       if (!resultado.filasFinales.length) {
-        tbody.innerHTML = `<tr><td colspan="6">No hay datos suficientes para calcular la tabla consolidada de movilidad diaria.</td></tr>`;
-        if (nota) nota.textContent = "No se pudo calcular la tabla consolidada porque no se detectó la columna Ruta o no hay filas cargadas.";
+        tbody.innerHTML = `<tr><td colspan="7">No hay datos suficientes para calcular la tabla consolidada mensual por vehículo.</td></tr>`;
+        if (nota) nota.textContent = "No se pudo calcular la tabla porque no se detectó Ruta, Vehículo, Ingresos totales o Viajes realizados, o no hay filas cargadas.";
         return resultado;
       }
 
       tbody.innerHTML = resultado.filasFinales.map((fila, index) => `
         <tr>
           <td><strong>${index + 1}</strong></td>
-          <td>${escaparHtml(fila.ruta)}</td>
-          <td class="numero"><strong>${formatearNumero(fila.cantidadVehiculos)}</strong></td>
+          <td>${escaparHtml(fila.mesLabel || "Sin mes")}</td>
+          <td>${escaparHtml(fila.ruta || "Sin ruta")}</td>
+          <td><strong>${escaparHtml(fila.vehiculo || "Sin vehículo")}</strong></td>
           <td class="numero">${formatearNumero(fila.ingresos)}</td>
           <td class="numero">${formatearNumero(fila.viajes)}</td>
           <td class="numero">${formatearNumero(fila.registros)}</td>
@@ -4469,7 +4489,7 @@
       `).join("");
 
       if (nota) {
-        nota.textContent = `Tabla consolidada por ruta. Vehículos cuenta valores únicos de "${resultado.colVehiculo || "No detectada"}"; ingresos usa "${resultado.colIngresos || "No detectada"}"; viajes usa "${resultado.colViajes || "No detectada"}". Aeropuerto divide viajes entre 2.`;
+        nota.textContent = `Tabla única consolidada por mes, ruta y vehículo. Ingresos usa "${resultado.colIngresos || "No detectada"}"; viajes usa "${resultado.colViajes || "No detectada"}". Aeropuerto agrupa 700/texto y divide únicamente los viajes entre 2.`;
       }
 
       return resultado;
@@ -4632,15 +4652,16 @@
     function obtenerRutaDetalleMovilidad(fila, colRuta, colAG) {
       const valorRuta = colRuta ? fila[colRuta] : "";
       const codigoRuta = obtenerCodigoRutaMovilidad(valorRuta);
+      const textoRuta = normalizarTexto(valorRuta);
       const ag = colAG ? normalizarTexto(fila[colAG]) : "";
 
-      if (codigoRuta === "313") return "313";
-      if (codigoRuta === "700") return "Aeropuerto";
-      if (codigoRuta === "2") return "Zamora";
-      if (codigoRuta === "41") {
-        if (ag === "a") return "Aranjuez 041A";
-        if (ag === "g") return "Aranjuez 041G";
-        if (ag === "ag") return "Aranjuez 041AG";
+      if (codigoRuta === "313" || textoRuta.includes("313")) return "313";
+      if (codigoRuta === "700" || textoRuta.includes("aeropuerto") || textoRuta.includes("aeropuero")) return "Aeropuerto";
+      if (codigoRuta === "2" || textoRuta.includes("zamora")) return "Zamora";
+      if (codigoRuta === "41" || textoRuta.includes("aranjuez") || textoRuta.includes("041")) {
+        if (ag === "a" || textoRuta.includes("041a")) return "Aranjuez 041A";
+        if (ag === "g" || textoRuta.includes("041g")) return "Aranjuez 041G";
+        if (ag === "ag" || textoRuta.includes("041ag")) return "Aranjuez 041AG";
         return "Aranjuez 041";
       }
 
@@ -4652,11 +4673,136 @@
       return valor || "Sin vehículo";
     }
 
-    function construirIndicadoresAvanzadosMovilidad(datos) {
-      const resultado = construirFilasResumenMovilidadDiaria(datos || []);
+    function obtenerClaveVehiculoMovilidad(vehiculo) {
+      let valor = String(vehiculo || "").trim();
+      if (!valor || valor === "Sin vehículo") return "";
+
+      // Normaliza internos que a veces llegan como 750, 0750, 750.0 o 750,0.
+      const numeroSimple = valor.match(/^0*(\d+)(?:[\.,]0+)?$/);
+      if (numeroSimple) valor = String(Number(numeroSimple[1]));
+
+      return normalizarTexto(valor).replace(/[^a-z0-9]/g, "").toUpperCase();
+    }
+
+    function obtenerEtiquetaVehiculoMovilidad(vehiculo) {
+      let valor = String(vehiculo || "").trim();
+      if (!valor || valor === "Sin vehículo") return "Sin vehículo";
+
+      const numeroSimple = valor.match(/^0*(\d+)(?:[\.,]0+)?$/);
+      if (numeroSimple) valor = String(Number(numeroSimple[1]));
+
+      return valor;
+    }
+
+    function construirRankingVehiculosMovilidad(datos) {
+      const base = Array.isArray(datos) ? datos : [];
+      const columnas = obtenerColumnasDesdeDatos(base);
+
+      const colRuta = buscarColumnaPreferidaMovilidad(columnas, ["Ruta", "RUTA", "ruta"], ["ruta"]);
+      const colVehiculo = buscarColumnaPreferidaMovilidad(
+        columnas,
+        ["Vehículo", "Vehiculo", "VEHICULO", "Interno", "INTERNO", "Placa", "PLACA", "Móvil", "Movil"],
+        ["vehiculo", "interno", "placa", "movil"]
+      );
+      const colIngresos = buscarColumnaPreferidaMovilidad(columnas, ["Ingresos totales", "INGRESOS TOTALES", "Total salidas"], ["ingresos totales", "ingresos", "total salidas"]);
+      const colBarrial = buscarColumnaPreferidaMovilidad(columnas, ["Barrial"], ["barrial"]);
+      const colViajes = buscarColumnaPreferidaMovilidad(columnas, ["Viajes realizados", "VIAJES REALIZADOS"], ["viajes realizados", "viajes"]);
+      const colAG = buscarColumnaPreferidaMovilidad(columnas, ["A-G", "AG", "A G", "A/G"], ["a-g", "ag"]);
+      const colFecha = buscarColumnaMovilidad(columnas, ["fecha", "día", "dia"]);
+
+      const grupos = new Map();
+
+      function asegurarGrupo(mesClave, mesLabel, ruta, vehiculo, sortMes) {
+        const vehiculoLabel = obtenerEtiquetaVehiculoMovilidad(vehiculo);
+        const claveVehiculo = obtenerClaveVehiculoMovilidad(vehiculoLabel) || normalizarTexto(vehiculoLabel).replace(/[^a-z0-9]/g, "").toUpperCase();
+        const rutaFinal = String(ruta || "Sin ruta").trim() || "Sin ruta";
+        const key = `${mesClave || "Sin mes"}|${rutaFinal}|${claveVehiculo || vehiculoLabel}`;
+
+        if (!grupos.has(key)) {
+          grupos.set(key, {
+            mesClave: mesClave || "Sin mes",
+            mesLabel: mesLabel || "Sin mes",
+            sortMes: Number(sortMes || 0),
+            ruta: rutaFinal,
+            vehiculo: vehiculoLabel,
+            ingresos: 0,
+            viajes: 0,
+            registros: 0
+          });
+        }
+
+        return grupos.get(key);
+      }
+
+      function sumarRanking(fila, ruta, ingresos, viajes, vehiculo) {
+        const mesClave = obtenerMesClaveMovilidad(fila, colFecha);
+        const mesLabel = mesClave ? obtenerMesLabelMovilidad(mesClave) : "Sin mes";
+        const fecha = colFecha ? obtenerFechaMovilidad(fila, colFecha) : null;
+        const sortMes = fecha && !isNaN(fecha.getTime()) ? new Date(fecha.getFullYear(), fecha.getMonth(), 1).getTime() : 0;
+        const grupo = asegurarGrupo(mesClave, mesLabel, ruta, vehiculo, sortMes);
+        grupo.ingresos += Number(ingresos || 0);
+        grupo.viajes += Number(viajes || 0);
+        grupo.registros += 1;
+      }
+
+      base.forEach(fila => {
+        const codigoRuta = colRuta ? obtenerCodigoRutaMovilidad(fila[colRuta]) : "";
+        if (RUTAS_RAMAL_OCULTAS && RUTAS_RAMAL_OCULTAS.has(codigoRuta)) return;
+
+        const rutaAgrupada = obtenerRutaDetalleMovilidad(fila, colRuta, colAG);
+        const vehiculo = obtenerVehiculoMovilidad(fila, colVehiculo);
+        const ingresos = obtenerValorNumericoFilaMovilidad(fila, colIngresos);
+        const barrial = obtenerValorNumericoFilaMovilidad(fila, colBarrial);
+        const viajes = obtenerValorNumericoFilaMovilidad(fila, colViajes);
+        const ag = normalizarTexto(colAG ? fila[colAG] : "").replace(/\s+/g, "").replace(/-/g, "");
+
+        if (rutaAgrupada === "313") {
+          sumarRanking(fila, "313", ingresos, viajes, vehiculo);
+        } else if (rutaAgrupada === "Aeropuerto") {
+          // En Aeropuerto los viajes vienen duplicados en la fuente; se dividen entre 2.
+          sumarRanking(fila, "Aeropuerto", ingresos, viajes / 2, vehiculo);
+        } else if (rutaAgrupada === "Zamora") {
+          sumarRanking(fila, "Zamora centro", ingresos, viajes, vehiculo);
+          if (colBarrial) sumarRanking(fila, "Zamora Barrial", barrial, viajes, vehiculo);
+        } else if (rutaAgrupada.startsWith("Aranjuez")) {
+          if (ag === "a") sumarRanking(fila, "Aranjuez 041A", ingresos, viajes, vehiculo);
+          else if (ag === "g") sumarRanking(fila, "Aranjuez 041G", ingresos, viajes, vehiculo);
+          else if (ag === "ag") sumarRanking(fila, "Aranjuez 041AG", ingresos, viajes, vehiculo);
+          else sumarRanking(fila, rutaAgrupada, ingresos, viajes, vehiculo);
+        } else {
+          sumarRanking(fila, rutaAgrupada, ingresos, viajes, vehiculo);
+        }
+      });
+
+      const filasFinales = [...grupos.values()]
+        .filter(item => item.vehiculo && item.vehiculo !== "Sin vehículo" && (item.ingresos || item.viajes || item.registros))
+        .sort((a, b) =>
+          b.ingresos - a.ingresos ||
+          b.viajes - a.viajes ||
+          b.sortMes - a.sortMes ||
+          String(a.ruta).localeCompare(String(b.ruta), "es", { numeric: true }) ||
+          String(a.vehiculo).localeCompare(String(b.vehiculo), "es", { numeric: true })
+        );
+
       return {
-        ...resultado,
-        resumenPorRuta: resultado.filasFinales
+        filasFinales,
+        columnas,
+        colRuta,
+        colVehiculo,
+        colIngresos,
+        colBarrial,
+        colViajes,
+        colAG,
+        colFecha,
+        totalFilas: filasFinales.length
+      };
+    }
+
+    function construirIndicadoresAvanzadosMovilidad(datos) {
+      const ranking = construirRankingVehiculosMovilidad(datos || []);
+      return {
+        ...ranking,
+        rankingVehiculosMensual: ranking.filasFinales
       };
     }
 
@@ -4669,8 +4815,9 @@
       thead.innerHTML = `
         <tr>
           <th>#</th>
+          <th>Mes</th>
           <th>Ruta</th>
-          <th>Cantidad vehículos</th>
+          <th>Vehículo</th>
           <th>Ingresos totales</th>
           <th>Viajes realizados</th>
           <th>Registros</th>
@@ -4678,15 +4825,16 @@
       `;
 
       if (!filas.length) {
-        tbody.innerHTML = `<tr><td colspan="6">No hay datos suficientes para construir este indicador.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7">No hay datos suficientes para construir este ranking.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filas.map((item, index) => `
         <tr>
           <td><strong>${index + 1}</strong></td>
-          <td>${escaparHtml(item.ruta)}</td>
-          <td><strong>${formatearNumero(item.cantidadVehiculos || 0)}</strong></td>
+          <td>${escaparHtml(item.mesLabel || "Sin mes")}</td>
+          <td>${escaparHtml(item.ruta || "Sin ruta")}</td>
+          <td><strong>${escaparHtml(item.vehiculo || "Sin vehículo")}</strong></td>
           <td>${formatearNumero(item.ingresos || 0)}</td>
           <td>${formatearNumero(item.viajes || 0)}</td>
           <td>${formatearNumero(item.registros || 0)}</td>
@@ -4698,8 +4846,19 @@
       const canvas = document.getElementById(canvasId);
       if (!canvas || typeof Chart === "undefined") return null;
 
-      const labels = filas.map(item => item.vehiculo ? `${item.ruta} - ${item.vehiculo}` : `${item.ruta}`);
+      const labels = filas.map(item => {
+        const partes = [];
+        if (item.mesLabel) partes.push(item.mesLabel);
+        if (item.ruta) partes.push(item.ruta);
+        if (item.vehiculo) partes.push(item.vehiculo);
+        return partes.length ? partes.join(" · ") : "Sin dato";
+      });
       const data = filas.map(item => Number(item[valueKey] || 0));
+
+      const wrap = canvas.parentElement;
+      if (wrap && filas.length) {
+        wrap.style.height = `${Math.max(430, Math.min(1300, filas.length * 24 + 140))}px`;
+      }
 
       return new Chart(canvas, {
         type: "bar",
@@ -4750,7 +4909,7 @@
                 font: { size: 11, weight: "700" },
                 callback: function(value) {
                   const label = this.getLabelForValue(value) || "";
-                  return label.length > 34 ? label.slice(0, 34) + "…" : label;
+                  return label.length > 44 ? label.slice(0, 44) + "…" : label;
                 }
               },
               grid: { display: false }
@@ -4971,15 +5130,15 @@
         }
       }
 
-      const filas = info.resumenPorRuta || [];
-      renderTablaRankingMovilidad("tablaTopMovilizacion", filas, "vehiculos");
+      const filas = info.rankingVehiculosMensual || [];
+      const filasGrafico = filas.slice(0, 80);
 
       graficoTopMovilizacion = renderGraficoRankingMovilidad(
         "graficoTopMovilizacion",
-        filas,
-        "cantidadVehiculos",
-        "Cantidad de vehículos por ruta",
-        "Vehículos"
+        filasGrafico,
+        "ingresos",
+        filas.length > 80 ? "Ranking mensual de vehículos con mayor movilidad - primeros 80" : "Ranking mensual de vehículos con mayor movilidad",
+        "Ingresos totales"
       );
     }
 
