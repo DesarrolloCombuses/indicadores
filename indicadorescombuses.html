@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Operativo Responsive</title>
+  <title>Dashboard Operativo Responsive - Corregido</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -2159,7 +2159,7 @@
             <span class="chip" id="chipModo">Modo: Por año</span>
             <span class="chip" id="chipSeleccion">Seleccionados: 0</span>
             <span class="chip" id="chipRegistros">Registros: 0</span>
-            <span class="chip chip-auto-corte" id="chipCorteComparable">Periodo automático: calculando...</span>
+            <span class="chip chip-auto-corte" id="chipCorteComparable">Periodo automático: esperando datos 2026...</span>
           </div>
 
           <div class="estado" id="estado">Cargando datos...</div>
@@ -2596,8 +2596,8 @@
     const MOVILIDAD_FECHA_MINIMA_LABEL = "01/01/2026";
     // CONTROL DE FUENTE PARA DASHBOARDS GENERALES:
     // true  = los gráficos y tablas principales se alimentan solo con la base histórica/vieja.
-    // false = la base histórica se corta antes de abril 2026 y se complementa con movilidad diaria.
-    const BASE_HISTORICA_LLENA_DASHBOARDS = true;
+    // false = la base histórica se corta desde enero de 2026 y se complementa con movilidad diaria.
+    const BASE_HISTORICA_LLENA_DASHBOARDS = false;
     // Aplica automáticamente un corte comparable: si 2026 llega al 25/04,
     // 2025 y 2024 se comparan únicamente hasta el 25/04 de cada año.
     const FILTRO_AUTOMATICO_PERIODO_COMPARABLE = true;
@@ -3235,6 +3235,15 @@
 
     function actualizarCortePeriodoComparable(datos = datosPreparados) {
       cortePeriodoComparable = obtenerCortePeriodoComparable(datos);
+
+      // Respaldo: si la base principal todavía no trae 2026, calcula el corte
+      // usando directamente la movilidad diaria ya cargada. Esto evita que el chip
+      // se quede indefinidamente en "calculando".
+      if (!cortePeriodoComparable && Array.isArray(datosMovilidadDiaria) && datosMovilidadDiaria.length) {
+        const movilidadComoDashboard = prepararDatos(convertirResumenMovilidadABaseDashboard(datosMovilidadDiaria));
+        cortePeriodoComparable = obtenerCortePeriodoComparable(movilidadComoDashboard);
+      }
+
       actualizarChipCorteComparable();
       return cortePeriodoComparable;
     }
@@ -3272,7 +3281,7 @@
       }
 
       if (!cortePeriodoComparable) {
-        chip.textContent = "Periodo automático: calculando...";
+        chip.textContent = "Periodo automático: sin datos 2026";
         return;
       }
 
@@ -7058,6 +7067,86 @@
     }
 
 
+    // Eventos principales de los filtros dinámicos
+    function inicializarFiltrosDinamicosPrincipales() {
+      const slicerTiempo = document.getElementById("slicerTiempo");
+      const slicerHeader = document.getElementById("slicerHeader");
+      const buscarItem = document.getElementById("buscarItem");
+      const btnTodos = document.getElementById("btnTodos");
+      const btnNinguno = document.getElementById("btnNinguno");
+      const btnAplicar = document.getElementById("btnAplicar");
+      const btnLimpiar = document.getElementById("btnLimpiar");
+      const fechaInicio = document.getElementById("fechaInicio");
+      const fechaFin = document.getElementById("fechaFin");
+
+      document.querySelectorAll(".tab-btn[data-mode]").forEach(btn => {
+        btn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const mode = btn.dataset.mode || "anio";
+          cambiarModo(mode);
+        });
+      });
+
+      if (buscarItem) {
+        buscarItem.addEventListener("input", () => {
+          if (modoActual !== "rango") renderLista();
+        });
+      }
+
+      if (btnTodos) {
+        btnTodos.addEventListener("click", (event) => {
+          event.preventDefault();
+          if (modoActual === "rango") return;
+          seleccion[modoActual] = new Set((opciones[modoActual] || []).map(item => item.value));
+          renderLista();
+          actualizarChips();
+        });
+      }
+
+      if (btnNinguno) {
+        btnNinguno.addEventListener("click", (event) => {
+          event.preventDefault();
+          if (modoActual === "rango") return;
+          seleccion[modoActual] = new Set();
+          renderLista();
+          actualizarChips();
+        });
+      }
+
+      if (btnAplicar) {
+        btnAplicar.addEventListener("click", (event) => {
+          event.preventDefault();
+          actualizarChips();
+          aplicarFiltros();
+        });
+      }
+
+      if (btnLimpiar) {
+        btnLimpiar.addEventListener("click", (event) => {
+          event.preventDefault();
+          limpiarModoActual();
+        });
+      }
+
+      [fechaInicio, fechaFin].forEach(control => {
+        if (control) {
+          control.addEventListener("change", () => {
+            actualizarChips();
+          });
+        }
+      });
+
+      if (slicerHeader && slicerTiempo) {
+        slicerHeader.addEventListener("click", () => {
+          slicerTiempo.classList.toggle("collapsed");
+          const icono = slicerHeader.querySelector("span:last-child");
+          if (icono) icono.textContent = slicerTiempo.classList.contains("collapsed") ? "▶" : "▼";
+        });
+      }
+    }
+
+
     // Eventos de movilidad diaria: filtros, recarga y descarga de Excel
     ["filtroMovilidadRuta", "filtroMovilidadVehiculo"].forEach(id => {
       const control = document.getElementById(id);
@@ -7341,7 +7430,7 @@
         timeout = setTimeout(() => {
           limpiar();
           reject(new Error("Tiempo agotado leyendo el proxy de Apps Script. Vuelve a implementar el Apps Script como Aplicación web y verifica permisos."));
-        }, 60000);
+        }, 15000);
 
         document.body.appendChild(script);
       });
@@ -7415,26 +7504,99 @@
       return base.filter(fila => {
         const fecha = obtenerFechaFilaBasePrincipal(fila);
         // Si la fila principal no trae fecha, se conserva para no perder histórico.
-        // Si tiene fecha desde enero de 2026, se reemplaza por la movilidad diaria.
+        // Si tiene fecha desde enero de 2026, se reemplaza por la movilidad diaria para evitar duplicados.
         if (!fecha) return true;
         return fecha < corte;
       });
     }
 
     function convertirResumenMovilidadABaseDashboard(datosMovilidadFiltrados) {
-      const resultado = construirFilasResumenMovilidadDiaria(datosMovilidadFiltrados || []);
+      const base = Array.isArray(datosMovilidadFiltrados) ? datosMovilidadFiltrados : [];
+      const columnas = obtenerColumnasDesdeDatos(base);
 
-      return (resultado.filasFinales || []).map(fila => ({
-        "Año": fila.anio,
-        "FECHA": fila.fecha,
-        "Mes": fila.mes,
-        "Día": fila.dia,
-        "Ruta": fila.ruta,
-        "Pasajeros": fila.pasajeros,
-        "Viajes realizados": fila.viajes,
-        "Fuente": "Movilidad diaria",
-        "_AeropuertoViajesDivididos": fila.ruta === "Aeropuerto" ? "SI" : ""
-      }));
+      const colFecha = buscarColumnaMovilidad(columnas, ["fecha", "FECHA", "día", "dia"]);
+      const colRuta = buscarColumnaPreferidaMovilidad(columnas, ["Ruta"], ["ruta"]);
+      const colIngresos = buscarColumnaPreferidaMovilidad(
+        columnas,
+        ["Ingresos totales", "INGRESOS TOTALES", "Total salidas"],
+        ["ingresos totales", "ingresos", "total salidas"]
+      );
+      const colBarrial = buscarColumnaPreferidaMovilidad(columnas, ["Barrial"], ["barrial"]);
+      const colViajes = buscarColumnaPreferidaMovilidad(
+        columnas,
+        ["Viajes realizados", "VIAJES REALIZADOS"],
+        ["viajes realizados", "viajes"]
+      );
+      const colAG = buscarColumnaPreferidaMovilidad(columnas, ["A-G", "AG", "A G", "A/G"], ["a-g", "ag"]);
+
+      if (!base.length || !colFecha || !colRuta) return [];
+
+      const grupos = new Map();
+
+      function nombreDia(fecha) {
+        return obtenerDiaSemanaMovilidad(fecha) || "";
+      }
+
+      function agregarFilaDashboard(fecha, ruta, pasajeros, viajes, aeropuertoYaDividido = false) {
+        if (!fecha || !ruta) return;
+        const rutaAgrupada = normalizarRuta(ruta);
+        if (!rutaAgrupada) return;
+
+        const fechaISO = toISO(fecha);
+        const clave = `${fechaISO}|${ruta}`;
+        if (!grupos.has(clave)) {
+          grupos.set(clave, {
+            "Año": String(fecha.getFullYear()),
+            "FECHA": toVisual(fecha),
+            "Mes": nombreMes(fecha.getMonth() + 1),
+            "Día": nombreDia(fecha),
+            "Ruta": ruta,
+            "Pasajeros": 0,
+            "Viajes realizados": 0,
+            "Fuente": "Movilidad diaria",
+            "_AeropuertoViajesDivididos": aeropuertoYaDividido ? "SI" : ""
+          });
+        }
+
+        const item = grupos.get(clave);
+        item["Pasajeros"] += Number(pasajeros || 0);
+        item["Viajes realizados"] += Number(viajes || 0);
+        if (aeropuertoYaDividido) item["_AeropuertoViajesDivididos"] = "SI";
+      }
+
+      base.forEach(fila => {
+        const fecha = obtenerFechaMovilidad(fila, colFecha);
+        if (!fecha) return;
+
+        const codigoRuta = colRuta ? obtenerCodigoRutaMovilidad(fila[colRuta]) : "";
+        if (RUTAS_RAMAL_OCULTAS && RUTAS_RAMAL_OCULTAS.has(codigoRuta)) return;
+
+        const rutaDetalle = obtenerRutaDetalleMovilidad(fila, colRuta, colAG);
+        const ingresos = obtenerValorNumericoFilaMovilidad(fila, colIngresos);
+        const barrial = obtenerValorNumericoFilaMovilidad(fila, colBarrial);
+        const viajes = obtenerValorNumericoFilaMovilidad(fila, colViajes);
+
+        if (rutaDetalle === "313") {
+          agregarFilaDashboard(fecha, "313", ingresos, viajes);
+        } else if (rutaDetalle === "Aeropuerto") {
+          // En movilidad diaria los viajes de Aeropuerto llegan duplicados.
+          agregarFilaDashboard(fecha, "Aeropuerto", ingresos, viajes / 2, true);
+        } else if (rutaDetalle === "Zamora") {
+          // Para dashboard principal se consolida Zamora en una sola ruta.
+          // Pasajeros suma centro + barrial; viajes se toma una sola vez para no duplicar recorridos.
+          agregarFilaDashboard(fecha, "Zamora", ingresos + barrial, viajes);
+        } else if (String(rutaDetalle).startsWith("Aranjuez")) {
+          agregarFilaDashboard(fecha, "Aranjuez", ingresos, viajes);
+        }
+      });
+
+      return [...grupos.values()].sort((a, b) => {
+        const fa = parseFechaDMY(a["FECHA"]);
+        const fb = parseFechaDMY(b["FECHA"]);
+        const ia = fa ? fa.getTime() : 0;
+        const ib = fb ? fb.getTime() : 0;
+        return ia - ib || String(a["Ruta"]).localeCompare(String(b["Ruta"]), "es", { numeric: true });
+      });
     }
 
     function construirBaseDashboardCombinada(datosPrincipal, datosMovilidadFiltrados) {
@@ -7509,7 +7671,7 @@
         if (combinado.modo === "base_historica") {
           estado.textContent = `Información cargada correctamente. Los gráficos y tablas principales usan la base histórica. La movilidad diaria queda disponible en su propia pestaña. Registros principales: ${formatearNumero(datosPreparados.length)}.${textoCorte}`;
         } else {
-          estado.textContent = `Información cargada correctamente. Los gráficos y tablas principales usan la base histórica complementada con movilidad diaria desde ${MOVILIDAD_FECHA_MINIMA_LABEL}. Registros principales: ${formatearNumero(datosPreparados.length)}.${textoCorte}`;
+          estado.textContent = `Información cargada correctamente. Los gráficos y tablas principales usan la base histórica + movilidad diaria desde ${MOVILIDAD_FECHA_MINIMA_LABEL}. Registros principales: ${formatearNumero(datosPreparados.length)}.${textoCorte}`;
         }
       } finally {
         ocultarModalCarga();
@@ -7518,6 +7680,7 @@
 
     inicializarControlesGraficos();
     inicializarMenuDashboard();
+    inicializarFiltrosDinamicosPrincipales();
     renderPestanasDashboard();
     activarPestanaDashboard(dashboardTabActual);
     cargarDatosIniciales();
@@ -7525,3 +7688,4 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+  
