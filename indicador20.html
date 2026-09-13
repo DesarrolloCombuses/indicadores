@@ -20,7 +20,7 @@
       --head:#f1f3f5;
       --blue:#16a34a;
       --green:#16a34a;
-      --green-soft:#dcfce7;
+      --green-soft:#45825a;
       --red:#dc2626;
       --red-soft:#fee2e2;
       --shadow:0 8px 24px rgba(0,0,0,.08);
@@ -704,6 +704,14 @@
       color:#f3f4f6;
     }
 
+    .dark-chart-panel .chart-control{
+      color:#f3f4f6;
+    }
+
+    .dark-chart-panel .chart-control select{
+      color:#111827;
+    }
+
     .dark-chart-wrap{
       background:transparent;
       border-radius:16px;
@@ -787,6 +795,16 @@
 
     .chart-data-table tbody tr:hover{
       background:rgba(255,255,255,.08) !important;
+    }
+
+    .chart-data-table tbody td.variacion-positiva{
+      color:#4ade80 !important;
+      font-weight:700;
+    }
+
+    .chart-data-table tbody td.variacion-negativa{
+      color:#f87171 !important;
+      font-weight:700;
     }
 
     .chart-data-table .valor-real-2026{
@@ -2356,6 +2374,18 @@
             <h2>Comparativo mensual por año - Pasajeros</h2>
             <div class="muted" id="notaMesAnioPasajeros">Comparativo mes contra mes por año con la información disponible.</div>
           </div>
+          <div class="chart-toolbar">
+            <label class="chart-control">
+              Ruta
+              <select id="filtroMesAnioRutaPasajeros">
+                <option value="__ALL__">Todas las rutas</option>
+                <option value="313">313</option>
+                <option value="Aeropuerto" selected>Aeropuerto (700)</option>
+                <option value="Aranjuez">Aranjuez</option>
+                <option value="Zamora">Zamora</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div class="dark-chart-wrap" style="height:420px;">
           <canvas id="graficoMesAnioPasajeros"></canvas>
@@ -2373,6 +2403,18 @@
           <div class="chart-title-block">
             <h2>Comparativo mensual por año - Viajes</h2>
             <div class="muted" id="notaMesAnioViajes">Comparativo mes contra mes por año con la información disponible.</div>
+          </div>
+          <div class="chart-toolbar">
+            <label class="chart-control">
+              Ruta
+              <select id="filtroMesAnioRutaViajes">
+                <option value="__ALL__">Todas las rutas</option>
+                <option value="313">313</option>
+                <option value="Aeropuerto" selected>Aeropuerto (700)</option>
+                <option value="Aranjuez">Aranjuez</option>
+                <option value="Zamora">Zamora</option>
+              </select>
+            </label>
           </div>
         </div>
         <div class="dark-chart-wrap" style="height:420px;">
@@ -3939,17 +3981,21 @@
       return `${dia} de ${mes} del año ${anio}`;
     }
 
-    function construirComparativoMesAnio(datos, campo) {
+    function etiquetaRutaMesAnio(ruta) {
+      if (ruta === "__ALL__") return "Todas las rutas";
+      if (ruta === "Aeropuerto") return "Aeropuerto (700)";
+      return ruta;
+    }
+
+    function construirComparativoMesAnio(datos, campo, ruta = "__ALL__") {
       const aniosBase = ["2025", "2026"];
       const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-      const coloresMeses = [
-        "#0ea5e9", "#f97316", "#22c55e", "#06b6d4", "#a855f7", "#65a30d",
-        "#164e63", "#ea580c", "#166534", "#38bdf8", "#c026d3", "#84cc16"
-      ];
+      const coloresAnios = { "2025": "#38bdf8", "2026": "#f97316" };
 
       const mapa = new Map();
       datos.forEach(fila => {
         if (!fila._rutaAgrupada) return;
+        if (ruta !== "__ALL__" && fila._rutaAgrupada !== ruta) return;
         if (!fila._anioFecha || !fila._mesClave) return;
         if (!aniosBase.includes(fila._anioFecha)) return;
         const partes = fila._mesClave.split("-");
@@ -3966,16 +4012,20 @@
 
       const anios = aniosConDatos.length ? aniosConDatos : aniosBase;
       const fechaMax2026 = obtenerFechaMaximaPorAnio(datos, "2026");
+      const ultimoDiaMesCorte = fechaMax2026
+        ? new Date(fechaMax2026.getFullYear(), fechaMax2026.getMonth() + 1, 0).getDate()
+        : 0;
+      const mesParcial2026 = fechaMax2026 && fechaMax2026.getDate() < ultimoDiaMesCorte ? fechaMax2026.getMonth() : -1;
 
       return {
         anios,
         nombresMeses,
-        coloresMeses,
         fechaMax2026,
-        valores: nombresMeses.map((mes, idx) => ({
-          mes,
-          color: coloresMeses[idx],
-          valoresPorAnio: anios.map(anio => {
+        mesParcial2026,
+        series: anios.map(anio => ({
+          anio,
+          color: coloresAnios[anio] || "#94a3b8",
+          valores: nombresMeses.map((_, idx) => {
             const valor = Number(mapa.get(`${anio}|${idx}`) || 0);
             return valor > 0 ? valor : null;
           })
@@ -3989,61 +4039,81 @@
       const thead = tabla.querySelector("thead");
       const tbody = tabla.querySelector("tbody");
 
+      const anterior = info.series.length >= 2 ? info.series[info.series.length - 2] : null;
+      const actual = info.series.length >= 2 ? info.series[info.series.length - 1] : null;
+
       thead.innerHTML = `
         <tr>
           <th>Mes</th>
-          ${info.anios.map(anio => `<th>${anio}</th>`).join("")}
+          ${info.series.map(serie => `<th><span class="legend-chip"><span class="legend-dot" style="background:${serie.color};"></span>${serie.anio}</span></th>`).join("")}
+          ${actual ? `<th>Variación ${actual.anio} vs ${anterior.anio}</th>` : ""}
         </tr>
       `;
 
-      tbody.innerHTML = info.valores.map(item => `
-        <tr>
-          <td><span class="legend-chip"><span class="legend-dot" style="background:${item.color};"></span>${item.mes}</span></td>
-          ${item.valoresPorAnio.map(valor => `<td>${valor === null ? "—" : formatearNumero(valor)}</td>`).join("")}
-        </tr>
-      `).join("");
+      tbody.innerHTML = info.nombresMeses.map((mes, idx) => {
+        let celdaVariacion = "";
+        if (actual) {
+          const valorActual = actual.valores[idx];
+          const valorAnterior = anterior.valores[idx];
+          if (valorActual === null || valorAnterior === null) {
+            celdaVariacion = "<td>—</td>";
+          } else {
+            const variacion = calcularVariacion(valorActual, valorAnterior);
+            const clase = variacion > 0 ? "variacion-positiva" : variacion < 0 ? "variacion-negativa" : "";
+            const parcial = actual.anio === "2026" && idx === info.mesParcial2026 ? " (mes parcial)" : "";
+            celdaVariacion = `<td class="${clase}">${variacion > 0 ? "+" : ""}${formatearPorcentaje(variacion)}${parcial}</td>`;
+          }
+        }
+
+        return `
+          <tr>
+            <td>${mes}</td>
+            ${info.series.map(serie => `<td>${serie.valores[idx] === null ? "—" : formatearNumero(serie.valores[idx])}</td>`).join("")}
+            ${celdaVariacion}
+          </tr>
+        `;
+      }).join("");
     }
 
-    function renderGraficoComparativoMesAnio(canvasId, tableId, noteId, datos, campo, titulo) {
+    function renderGraficoComparativoMesAnio(canvasId, tableId, noteId, datos, campo, titulo, ruta) {
       const canvas = document.getElementById(canvasId);
       if (!canvas || typeof Chart === "undefined") return null;
 
-      const info = construirComparativoMesAnio(datos, campo);
-      const datasets = info.valores.map((item) => ({
-        label: item.mes,
-        data: item.valoresPorAnio,
-        backgroundColor: item.color,
-        borderColor: item.color,
+      const info = construirComparativoMesAnio(datos, campo, ruta);
+      const datasets = info.series.map(serie => ({
+        label: serie.anio,
+        data: serie.valores,
+        backgroundColor: serie.color,
+        borderColor: serie.color,
         borderWidth: 1,
         borderRadius: 4,
-        categoryPercentage: 0.58,
-        barPercentage: 0.68,
-        barThickness: info.anios.length <= 2 ? 14 : 12,
-        maxBarThickness: 18
+        categoryPercentage: 0.72,
+        barPercentage: 0.9,
+        maxBarThickness: 46
       }));
 
       const note = document.getElementById(noteId);
       if (note) {
-        note.textContent = `Gráfico comparativo mes contra mes desde enero del año 2025 a ${formatearFechaCorte(info.fechaMax2026)}. Los meses sin registros reales se muestran vacíos.`;
+        note.textContent = `${etiquetaRutaMesAnio(ruta)}: comparativo mes contra mes desde enero del año 2025 a ${formatearFechaCorte(info.fechaMax2026)}. Los meses sin registros reales se muestran vacíos.`;
       }
 
       renderTablaComparativoMesAnio(tableId, info);
 
       return new Chart(canvas, {
         type: "bar",
-        data: { labels: info.anios, datasets },
+        data: { labels: info.nombresMeses, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { position: "bottom", labels: { color: "#f9fafb", usePointStyle: true, boxWidth: 10 } },
-            title: { display: true, text: titulo, color: "#f9fafb", font: { size: 18, weight: "bold" }, padding: { bottom: 14 } },
+            title: { display: true, text: `${titulo} - ${etiquetaRutaMesAnio(ruta)}`, color: "#f9fafb", font: { size: 18, weight: "bold" }, padding: { bottom: 14 } },
             tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y === null ? "Sin dato" : formatearNumero(ctx.parsed.y || 0)}` } }
           },
           scales: {
-            x: { stacked: false, offset: true, ticks: { color: "#f9fafb", font: { weight: "bold" }, padding: 8 }, grid: { color: "rgba(255,255,255,0.10)" } },
-            y: { beginAtZero: true, ticks: { color: "#f9fafb", callback: value => formatearNumero(value) }, grid: { color: "rgba(255,255,255,0.14)" } }
+            x: { stacked: false, offset: true, ticks: { color: "#f9fafb", font: { weight: "bold" }, padding: 8, autoSkip: false, maxRotation: 0 }, grid: { color: "rgba(255,255,255,0.10)" } },
+            y: { beginAtZero: true, grace: "8%", ticks: { color: "#f9fafb", callback: value => formatearNumero(value) }, grid: { color: "rgba(255,255,255,0.14)" } }
           }
         }
       });
@@ -4059,7 +4129,8 @@
         "notaMesAnioPasajeros",
         datos,
         "_pasajeros",
-        "Gráfico comparativo mes contra mes - Pasajeros"
+        "Gráfico comparativo mes contra mes - Pasajeros",
+        document.getElementById("filtroMesAnioRutaPasajeros")?.value || "__ALL__"
       );
 
       graficoMesAnioViajes = renderGraficoComparativoMesAnio(
@@ -4068,7 +4139,8 @@
         "notaMesAnioViajes",
         datos,
         "_viajes",
-        "Gráfico comparativo mes contra mes - Viajes"
+        "Gráfico comparativo mes contra mes - Viajes",
+        document.getElementById("filtroMesAnioRutaViajes")?.value || "__ALL__"
       );
     }
 
@@ -7005,6 +7077,11 @@
     if (btnRecargarMovilidad) {
       btnRecargarMovilidad.addEventListener("click", () => cargarMovilidadDiaria(true));
     }
+
+    ["filtroMesAnioRutaPasajeros", "filtroMesAnioRutaViajes"].forEach(id => {
+      const control = document.getElementById(id);
+      if (control) control.addEventListener("change", () => renderGraficosMesContraAnio(datosPreparados));
+    });
 
     ["filtroMovilidadRuta", "filtroMovilidadVehiculo"].forEach(id => {
       const control = document.getElementById(id);
