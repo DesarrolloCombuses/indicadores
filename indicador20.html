@@ -2500,6 +2500,61 @@
         </div>
       </div>
 
+      <div class="dashboard-section panel" data-dashboard-id="presupuesto_700_cumplimiento">
+        <div class="chart-head">
+          <div class="chart-title-block">
+            <h2>Presupuesto ruta 700 - Cumplimiento mensual</h2>
+            <div class="muted">Aeropuerto (700): ejecución real 2025, ejecución real 2026, presupuesto 2026, por movilizar y cumplimiento.</div>
+          </div>
+        </div>
+
+        <div class="budget-kpi-grid" id="resumenPresupuesto700"></div>
+
+        <div class="chart-wrap" style="height:380px; margin-bottom:14px;">
+          <canvas id="graficoPresupuesto700"></canvas>
+        </div>
+
+        <div class="table-wrap presupuesto-table">
+          <table id="tablaPresupuesto700">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="chart-note">La ejecución real 2025 y 2026 se toma de los datos cargados de la ruta 700. La columna Total a la fecha compara los meses reales disponibles y la columna Total año suma el acumulado anual de cada fila.</div>
+      </div>
+
+      <div class="dashboard-section panel dark-chart-panel" data-dashboard-id="comparativo_700_ppto">
+        <div class="chart-head">
+          <div class="chart-title-block">
+            <h2>Movilización ruta 700 2026 vs 2025 vs PPTO</h2>
+            <div class="muted">Comparativo mensual de la ruta Aeropuerto (700) con barras para 2025, 2026 y Presupuesto 2026, más línea de tendencia del presupuesto.</div>
+          </div>
+        </div>
+
+        <div class="dark-chart-wrap" style="height:430px;">
+          <canvas id="graficoComparativo700"></canvas>
+        </div>
+
+        <div class="chart-note warning-note" id="notaDisponibilidad700"></div>
+
+        <div class="chart-data-table">
+          <table id="tablaComparativo700">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="chart-note">
+          <span class="legend-chip"><span class="legend-dot" style="background:#3b82f6;"></span>2025</span>
+          &nbsp;&nbsp;
+          <span class="legend-chip"><span class="legend-dot" style="background:#f97316;"></span>2026</span>
+          &nbsp;&nbsp;
+          <span class="legend-chip"><span class="legend-dot" style="background:#22c55e;"></span>Presupuesto 2026</span>
+          &nbsp;&nbsp;
+          <span class="legend-chip"><span class="legend-line"></span>Tendencia PPTO</span>
+        </div>
+      </div>
+
     </div>
 
     <div class="grid-info" id="vistaCorte" style="display:none;">
@@ -2739,19 +2794,66 @@
       "2026-12": 674091
     };
 
+    // Presupuesto de pasajeros 2026 por ruta agrupada (nombre exacto: 313, Aeropuerto, Aranjuez, Zamora).
+    // Lo usa la pestaña "Presupuesto ruta 700"; allí 2025 y 2026 se toman de los datos reales de la ruta.
+    const PRESUPUESTO_PASAJEROS_2026_POR_RUTA = {
+      "Aeropuerto": {
+        "2026-01": 208408,
+        "2026-02": 181450,
+        "2026-03": 212435,
+        "2026-04": 238278,
+        "2026-05": 246683,
+        "2026-06": 288231,
+        "2026-07": 291036,
+        "2026-08": 294594,
+        "2026-09": 259719,
+        "2026-10": 267929,
+        "2026-11": 229246,
+        "2026-12": 282548
+      }
+    };
+
+    // Cada configuración conecta los cálculos de presupuesto con los elementos de su pestaña.
+    const CONFIG_PRESUPUESTO_GENERAL = {
+      ruta: "__ALL__",
+      etiquetaTabla: "TODAS LAS<br>RUTAS",
+      resumenId: "resumenPresupuesto",
+      graficoId: "graficoPresupuestoCumplimiento",
+      tablaId: "tablaPresupuestoCumplimiento",
+      tablaCuadroId: "tablaCuadroPresupuestoExcel",
+      comparativoId: "graficoComparativoAnual",
+      tablaComparativoId: "tablaComparativoChart",
+      notaId: "notaDisponibilidad2026",
+      tituloComparativo: "2026 VS 2025 VS PPTO TODAS LAS RUTAS"
+    };
+
+    const CONFIG_PRESUPUESTO_RUTA_700 = {
+      ruta: "Aeropuerto",
+      etiquetaTabla: "RUTA 700",
+      resumenId: "resumenPresupuesto700",
+      graficoId: "graficoPresupuesto700",
+      tablaId: "tablaPresupuesto700",
+      tablaCuadroId: null,
+      comparativoId: "graficoComparativo700",
+      tablaComparativoId: "tablaComparativo700",
+      notaId: "notaDisponibilidad700",
+      tituloComparativo: "MOVILIZACIÓN RUTA 700 2026 VS 2025 VS PPTO"
+    };
+
 
     /*
       ORGANIZACIÓN DE PESTAÑAS
       Cambia aquí qué dashboards aparecen en cada pestaña.
       IDs disponibles:
       pasajeros_ruta, viajes_ruta, pasajeros_ramal, mensual_pasajeros, mensual_viajes,
-      presupuesto_cumplimiento, comparativo_2026_ppto,
+      presupuesto_cumplimiento, comparativo_2026_ppto, presupuesto_700_cumplimiento, comparativo_700_ppto,
       corte_automatico, tendencia_acumulada, movilidad_diaria
     */
     const DASHBOARD_TABS = [
       { id: "operacion_rutas", nombre: "Operación por rutas", dashboards: ["pasajeros_ruta", "viajes_ruta", "pasajeros_ramal"] },
       { id: "comparativo_mensual", nombre: "Comparativo mensual", dashboards: ["mensual_pasajeros", "mensual_viajes"] },
       { id: "presupuesto", nombre: "Presupuesto", dashboards: ["presupuesto_cumplimiento", "comparativo_2026_ppto"] },
+      { id: "presupuesto_ruta_700", nombre: "Presupuesto ruta 700", dashboards: ["presupuesto_700_cumplimiento", "comparativo_700_ppto"] },
       { id: "a_la_fecha", nombre: "A la fecha", dashboards: ["corte_automatico", "tendencia_acumulada"] },
       { id: "movilidad_diaria", nombre: "Movilidad diaria", dashboards: ["movilidad_diaria"] }
     ];
@@ -2767,6 +2869,8 @@
     let modoActual = "anio";
     let graficoCrecimientoRuta = null;
     let graficoPresupuestoCumplimiento = null;
+    let graficoPresupuesto700 = null;
+    let graficoComparativo700 = null;
     let graficoComparativoAnual = null;
     let graficoCorteAutomatico = null;
     let graficoAcumuladoAutomatico = null;
@@ -2787,11 +2891,11 @@
       altura: "normal"
     };
 
-    function formatearNumeroGrafico(valor, esPorcentaje = false) {
+    function formatearNumeroGrafico(valor, esPorcentaje = false, formato = CONTROL_GRAFICOS.formatoValores) {
       const numero = Number(valor || 0);
       if (esPorcentaje) return formatearPorcentaje(numero).replace(" %", "%");
 
-      if (CONTROL_GRAFICOS.formatoValores === "completo") {
+      if (formato === "completo") {
         return formatearNumero(Math.round(numero));
       }
 
@@ -2824,6 +2928,8 @@
         const ctx = chart.ctx;
         const area = chart.chartArea;
         const esPanelOscuro = !!chart.canvas.closest(".dark-chart-panel");
+        // Un gráfico puede fijar su propio formato con options.plugins.pluginValoresEnBarras.formato.
+        const formato = chart.options.plugins?.pluginValoresEnBarras?.formato || CONTROL_GRAFICOS.formatoValores;
         const totalBarras = chart.data.datasets.reduce((acc, ds, idx) => {
           const meta = chart.getDatasetMeta(idx);
           if (meta.hidden) return acc;
@@ -2842,10 +2948,10 @@
             if (valor === null || valor === undefined || valor === "" || Number(valor) === 0) return;
 
             // En gráficos con demasiadas barras, el modo compacto evita saturación visual.
-            if (totalBarras > 72 && CONTROL_GRAFICOS.formatoValores === "compacto" && index % 2 !== 0) return;
+            if (totalBarras > 72 && formato === "compacto" && index % 2 !== 0) return;
 
             const numero = Number(valor);
-            const texto = formatearNumeroGrafico(numero, false);
+            const texto = formatearNumeroGrafico(numero, false, formato);
             const pos = element.tooltipPosition ? element.tooltipPosition() : { x: element.x, y: element.y };
             const horizontal = chart.options && chart.options.indexAxis === "y";
             let x = pos.x;
@@ -2860,7 +2966,7 @@
             }
 
             ctx.save();
-            ctx.font = CONTROL_GRAFICOS.formatoValores === "completo" ? "700 11px system-ui, Arial" : "800 11px system-ui, Arial";
+            ctx.font = formato === "completo" ? "700 11px system-ui, Arial" : "800 11px system-ui, Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
@@ -2894,6 +3000,8 @@
         graficoCrecimientoRuta,
         graficoPresupuestoCumplimiento,
         graficoComparativoAnual,
+        graficoPresupuesto700,
+        graficoComparativo700,
         graficoCorteAutomatico,
         graficoAcumuladoAutomatico,
         graficoTablaPasajeros,
@@ -4087,7 +4195,7 @@
         borderColor: serie.color,
         borderWidth: 1,
         borderRadius: 4,
-        categoryPercentage: 0.72,
+        categoryPercentage: 0.84,
         barPercentage: 0.9,
         maxBarThickness: 46
       }));
@@ -4107,6 +4215,7 @@
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           plugins: {
+            pluginValoresEnBarras: { formato: "completo" },
             legend: { position: "bottom", labels: { color: "#f9fafb", usePointStyle: true, boxWidth: 10 } },
             title: { display: true, text: `${titulo} - ${etiquetaRutaMesAnio(ruta)}`, color: "#f9fafb", font: { size: 18, weight: "bold" }, padding: { bottom: 14 } },
             tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y === null ? "Sin dato" : formatearNumero(ctx.parsed.y || 0)}` } }
@@ -5354,7 +5463,7 @@
       });
       actualizarGuiaPorPestana(tab.id);
       setTimeout(() => {
-        [graficoTablaPasajeros, graficoTablaViajes, graficoMesAnioPasajeros, graficoMesAnioViajes, graficoPresupuestoCumplimiento, graficoComparativoAnual, graficoCorteAutomatico, graficoAcumuladoAutomatico, graficoMovilidadDiaria]
+        [graficoTablaPasajeros, graficoTablaViajes, graficoMesAnioPasajeros, graficoMesAnioViajes, graficoPresupuestoCumplimiento, graficoComparativoAnual, graficoPresupuesto700, graficoComparativo700, graficoCorteAutomatico, graficoAcumuladoAutomatico, graficoMovilidadDiaria]
           .forEach(grafico => { if (grafico && typeof grafico.resize === "function") grafico.resize(); });
       }, 80);
     }
@@ -5384,6 +5493,8 @@
           if (graficoCrecimientoRuta) graficoCrecimientoRuta.resize();
           if (graficoPresupuestoCumplimiento) graficoPresupuestoCumplimiento.resize();
           if (graficoComparativoAnual) graficoComparativoAnual.resize();
+          if (graficoPresupuesto700) graficoPresupuesto700.resize();
+          if (graficoComparativo700) graficoComparativo700.resize();
         }, 50);
       }
 
@@ -5742,17 +5853,32 @@
       return obtenerValorMensual(mensualPasajeros, `2026-${mes}`);
     }
 
-    function construirMatrizPresupuesto(datos) {
-      const basePresupuesto = obtenerFuentePresupuestoTodasRutas(datos);
+    function filtrarDatosRutaPresupuesto(datos, ruta) {
+      if (ruta === "__ALL__") return datos;
+      return datos.filter(fila => fila._rutaAgrupada === ruta);
+    }
+
+    function obtenerPresupuestoMensualRuta(ruta, key2026) {
+      if (ruta === "__ALL__") return Number(PRESUPUESTO_PASAJEROS_2026[key2026] || 0);
+      return Number(PRESUPUESTO_PASAJEROS_2026_POR_RUTA[ruta]?.[key2026] || 0);
+    }
+
+    function construirMatrizPresupuesto(datos, ruta = "__ALL__") {
+      const basePresupuesto = filtrarDatosRutaPresupuesto(obtenerFuentePresupuestoTodasRutas(datos), ruta);
       const mensualPasajeros = sumarMensualTodasRutas(basePresupuesto, "_pasajeros");
 
       const columnas = MESES_PROYECCION_PPTO.map(col => {
         const mes = col.mes || col.key.split("-")[1];
-        const actual2025 = Number(PASAJEROS_2025_MODELO_PRESUPUESTO[mes] || 0);
-        const actual2026 = obtenerPasajeros2026ModeloPresupuesto(mes, mensualPasajeros);
-        const presupuesto = Number(PRESUPUESTO_PASAJEROS_2026[`2026-${mes}`] || 0);
+        // Todas las rutas conserva los valores base del modelo; una ruta individual usa sus datos reales.
+        const actual2025 = ruta === "__ALL__"
+          ? Number(PASAJEROS_2025_MODELO_PRESUPUESTO[mes] || 0)
+          : obtenerValorMensual(mensualPasajeros, `2025-${mes}`);
+        const actual2026 = ruta === "__ALL__"
+          ? obtenerPasajeros2026ModeloPresupuesto(mes, mensualPasajeros)
+          : obtenerValorMensual(mensualPasajeros, `2026-${mes}`);
+        const presupuesto = obtenerPresupuestoMensualRuta(ruta, `2026-${mes}`);
         const tieneActual2026 = actual2026 > 0;
-        const esDatoFijo2026 = PASAJEROS_2026_FIJOS_MODELO_PRESUPUESTO[mes] !== undefined;
+        const esDatoFijo2026 = ruta === "__ALL__" && PASAJEROS_2026_FIJOS_MODELO_PRESUPUESTO[mes] !== undefined;
 
         // En el modelo solicitado, "Por movilizar" solo muestra faltantes positivos
         // desde marzo en adelante; los meses cumplidos o superados quedan en blanco.
@@ -5829,17 +5955,17 @@
       return `<td class="${clase}">${contenido}</td>`;
     }
 
-    function renderTablaPresupuesto(datos) {
-      const tabla = document.getElementById("tablaPresupuestoCumplimiento");
+    function renderTablaPresupuesto(datos, cfg = CONFIG_PRESUPUESTO_GENERAL) {
+      const tabla = document.getElementById(cfg.tablaId);
       if (!tabla) return;
 
       const thead = tabla.querySelector("thead");
       const tbody = tabla.querySelector("tbody");
-      const { columnas, totales } = construirMatrizPresupuesto(datos);
+      const { columnas, totales } = construirMatrizPresupuesto(datos, cfg.ruta);
 
       thead.innerHTML = `
         <tr>
-          <th>TODAS LAS<br>RUTAS</th>
+          <th>${cfg.etiquetaTabla}</th>
           ${columnas.map(col => `<th>${col.label}</th>`).join("")}
           <th>TOTAL A LA<br>FECHA</th>
           <th>TOTAL AÑO</th>
@@ -5911,18 +6037,18 @@
 
       tbody.innerHTML = row2025 + row2026 + rowPpto + rowMovilizar + rowVar + rowCumpl + rowPptoVs;
 
-      const tablaCuadro = document.getElementById("tablaCuadroPresupuestoExcel");
+      const tablaCuadro = cfg.tablaCuadroId ? document.getElementById(cfg.tablaCuadroId) : null;
       if (tablaCuadro) {
         tablaCuadro.querySelector("thead").innerHTML = thead.innerHTML;
         tablaCuadro.querySelector("tbody").innerHTML = tbody.innerHTML;
       }
     }
 
-    function renderResumenPresupuesto(datos) {
-      const contenedor = document.getElementById("resumenPresupuesto");
+    function renderResumenPresupuesto(datos, cfg = CONFIG_PRESUPUESTO_GENERAL) {
+      const contenedor = document.getElementById(cfg.resumenId);
       if (!contenedor) return;
 
-      const { totales } = construirMatrizPresupuesto(datos);
+      const { totales } = construirMatrizPresupuesto(datos, cfg.ruta);
       const faltante = Number(totales.totalPorMovilizar || 0);
       const claseFaltante = faltante > 0 ? "negative" : faltante < 0 ? "positive" : "neutral";
       const claseCumpl = Number(totales.totalCumplimiento || 0) >= 85 ? "positive" : "negative";
@@ -5948,8 +6074,8 @@
     }
 
 
-    function construirSerieComparativaAnual(datos) {
-      const mensualPasajeros = sumarMensualTodasRutasConConteo(datos, "_pasajeros");
+    function construirSerieComparativaAnual(datos, ruta = "__ALL__") {
+      const mensualPasajeros = sumarMensualTodasRutasConConteo(filtrarDatosRutaPresupuesto(datos, ruta), "_pasajeros");
       const meses = [
         { key2025: "2025-01", key2026: "2026-01", label: "ENE" },
         { key2025: "2025-02", key2026: "2026-02", label: "FEB" },
@@ -5973,7 +6099,7 @@
           label: mes.label,
           y2025: item2025.filas > 0 ? item2025.valor : null,
           y2026: item2026.filas > 0 ? item2026.valor : null,
-          ppto2026: Number(PRESUPUESTO_PASAJEROS_2026[mes.key2026] || 0),
+          ppto2026: obtenerPresupuestoMensualRuta(ruta, mes.key2026),
           filas2025: item2025.filas,
           filas2026: item2026.filas
         };
@@ -6001,12 +6127,12 @@
       return valores.map((_, idx) => Math.round(intercept + slope * (idx + 1)));
     }
 
-    function renderTablaComparativoChart(datos) {
-      const tabla = document.getElementById("tablaComparativoChart");
+    function renderTablaComparativoChart(datos, cfg = CONFIG_PRESUPUESTO_GENERAL) {
+      const tabla = document.getElementById(cfg.tablaComparativoId);
       if (!tabla) return;
       const thead = tabla.querySelector("thead");
       const tbody = tabla.querySelector("tbody");
-      const serie = construirSerieComparativaAnual(datos);
+      const serie = construirSerieComparativaAnual(datos, cfg.ruta);
 
       thead.innerHTML = `
         <tr>
@@ -6046,22 +6172,21 @@
       tbody.innerHTML = fila2025 + fila2026 + filaPpto;
     }
 
-    function renderGraficoComparativoAnual(datos) {
-      const canvas = document.getElementById("graficoComparativoAnual");
-      if (!canvas || typeof Chart === "undefined") return;
+    function renderGraficoComparativoAnual(datos, cfg = CONFIG_PRESUPUESTO_GENERAL) {
+      const canvas = document.getElementById(cfg.comparativoId);
+      if (!canvas || typeof Chart === "undefined") return null;
 
-      const serie = construirSerieComparativaAnual(datos);
+      const serie = construirSerieComparativaAnual(datos, cfg.ruta);
       const labels = serie.map(item => item.label);
       const y2025 = serie.map(item => item.y2025 === null || item.y2025 === undefined ? null : item.y2025);
       const y2026 = serie.map(item => item.y2026 === null || item.y2026 === undefined ? null : item.y2026);
       const ppto2026 = serie.map(item => item.ppto2026 || 0);
       const tendenciaPpto = calcularTendenciaLineal(ppto2026);
 
-      if (graficoComparativoAnual) {
-        graficoComparativoAnual.destroy();
-      }
+      const graficoAnterior = Chart.getChart(canvas);
+      if (graficoAnterior) graficoAnterior.destroy();
 
-      graficoComparativoAnual = new Chart(canvas, {
+      const grafico = new Chart(canvas, {
         type: "bar",
         data: {
           labels,
@@ -6120,7 +6245,7 @@
             },
             title: {
               display: true,
-              text: "2026 VS 2025 VS PPTO TODAS LAS RUTAS",
+              text: cfg.tituloComparativo,
               color: "#f9fafb",
               font: { size: 24, weight: "bold" },
               padding: { top: 8, bottom: 14 }
@@ -6148,7 +6273,7 @@
         }
       });
 
-      const notaDisponibilidad = document.getElementById("notaDisponibilidad2026");
+      const notaDisponibilidad = document.getElementById(cfg.notaId);
       if (notaDisponibilidad) {
         const mesesConDato2026 = serie.filter(item => item.filas2026 > 0).map(item => item.label);
         notaDisponibilidad.textContent = mesesConDato2026.length
@@ -6156,8 +6281,9 @@
           : "No se encontraron registros reales de 2026.";
       }
 
-      renderTablaComparativoChart(datos);
+      renderTablaComparativoChart(datos, cfg);
       console.table(serie.map(item => ({ mes: item.label, real2025: item.y2025, real2026: item.y2026, presupuesto2026: item.ppto2026, filas2026: item.filas2026 })));
+      return grafico;
     }
 
     function parseISODateLocal(iso) {
@@ -6671,11 +6797,11 @@
     }
 
 
-    function renderGraficoPresupuesto(datos) {
-      const canvas = document.getElementById("graficoPresupuestoCumplimiento");
-      if (!canvas || typeof Chart === "undefined") return;
+    function renderGraficoPresupuesto(datos, cfg = CONFIG_PRESUPUESTO_GENERAL) {
+      const canvas = document.getElementById(cfg.graficoId);
+      if (!canvas || typeof Chart === "undefined") return null;
 
-      const { columnas } = construirMatrizPresupuesto(datos);
+      const { columnas } = construirMatrizPresupuesto(datos, cfg.ruta);
       const labels = columnas.map(col => col.label);
       const ejecutado = columnas.map(col => col.referenciaReal > 0 ? col.referenciaReal : null);
       const presupuesto = columnas.map(col => col.presupuesto || 0);
@@ -6695,11 +6821,10 @@
 
       const cumplimiento = columnas.map(col => col.cumplimiento === "" || col.cumplimiento === null ? null : Number(col.cumplimiento || 0));
 
-      if (graficoPresupuestoCumplimiento) {
-        graficoPresupuestoCumplimiento.destroy();
-      }
+      const graficoAnterior = Chart.getChart(canvas);
+      if (graficoAnterior) graficoAnterior.destroy();
 
-      graficoPresupuestoCumplimiento = new Chart(canvas, {
+      const grafico = new Chart(canvas, {
         type: "bar",
         data: {
           labels,
@@ -6802,13 +6927,20 @@
           }
         }
       });
+
+      return grafico;
     }
 
     function renderPanelPresupuesto(datos) {
-      renderResumenPresupuesto(datos);
-      renderGraficoPresupuesto(datos);
-      renderGraficoComparativoAnual(datos);
-      renderTablaPresupuesto(datos);
+      renderResumenPresupuesto(datos, CONFIG_PRESUPUESTO_GENERAL);
+      graficoPresupuestoCumplimiento = renderGraficoPresupuesto(datos, CONFIG_PRESUPUESTO_GENERAL);
+      graficoComparativoAnual = renderGraficoComparativoAnual(datos, CONFIG_PRESUPUESTO_GENERAL);
+      renderTablaPresupuesto(datos, CONFIG_PRESUPUESTO_GENERAL);
+
+      renderResumenPresupuesto(datos, CONFIG_PRESUPUESTO_RUTA_700);
+      graficoPresupuesto700 = renderGraficoPresupuesto(datos, CONFIG_PRESUPUESTO_RUTA_700);
+      graficoComparativo700 = renderGraficoComparativoAnual(datos, CONFIG_PRESUPUESTO_RUTA_700);
+      renderTablaPresupuesto(datos, CONFIG_PRESUPUESTO_RUTA_700);
     }
 
     function aplicarFiltros() {
